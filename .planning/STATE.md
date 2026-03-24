@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-24T01:36:55.793Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-03-24T01:51:08.846Z"
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -51,6 +51,7 @@ Plan: 3 of 3
 | Phase 01-server-foundation P03 | 2min | 2 tasks | 6 files |
 | Phase 02-world-and-movement P01 | 2 | 2 tasks | 10 files |
 | Phase 02 P02 | 4min | 2 tasks | 9 files |
+| Phase 02-world-and-movement P03 | 11min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase 02-world-and-movement]: Room IDs are zone-prefixed strings (zone_id:room_slug); ZoneFile struct is private to loader — only World is exposed
 - [Phase 02]: Free function read_frame_from resolves E0500 borrow conflict in tokio::select! — actor fields reader and room_receiver can be borrowed independently
 - [Phase 02]: Dispatch-try approach (auth first, then world) over unified ClientMessage wrapper: avoids breaking auth integration tests; postcard variant indices prevent cross-decode false positives
+- [Phase 02-world-and-movement]: Namespace byte (NS_AUTH/NS_WORLD) added to wire protocol: postcard lenient from_bytes allowed cross-decode false positives between auth and world message types
+- [Phase 02-world-and-movement]: TriggerCondition absent-key defaults to 'false': allows initial trigger fires on fresh rooms without DB pre-seeding
+- [Phase 02-world-and-movement]: World::default_spawn field for test-time spawn override: runtime-configurable without recompiling DEFAULT_SPAWN_ROOM constant
 
 ### Pending Todos
 
@@ -86,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T01:36:55.791Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-24T01:51:08.844Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None

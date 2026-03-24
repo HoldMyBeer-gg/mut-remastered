@@ -13,7 +13,7 @@ MUT Remastered is built from the inside out: server architecture first, then wor
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Server Foundation** - Tokio actor-per-session server, ECS world stub, SQLx schema, auth, and shared protocol crate (completed 2026-03-24)
-- [ ] **Phase 2: World and Movement** - Room system, movement commands, persistent world state, newbie area, and lore
+- [x] **Phase 2: World and Movement** - Room system, movement commands, persistent world state, newbie area, and lore (completed 2026-03-24)
 - [ ] **Phase 3: Character and Combat** - Character creation, D&D-flavored combat, inventory/equipment, and NPC monsters
 - [ ] **Phase 4: Native TUI Client** - Ratatui split-panel TUI binary with minimap, vitals bar, and full iTerm2/xterm compatibility
 - [ ] **Phase 5: Chat and Social** - Local/global chat channels, IC/OOC separation, player inspection, and character descriptions
@@ -48,11 +48,11 @@ Plans:
   3. A new player entering the newbie area receives guided prompts that explain movement and basic commands before entering the wider world
   4. Rooms contain readable lore text that rewards players who type "look" or examine environmental details
   5. A player action that should change world state (e.g., pulling a lever, clearing a blockage) is reflected for all players in that area
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 02-01-PLAN.md — Protocol world messages, world types, TOML zone data, SQLite migrations, and world loader
 - [x] 02-02-PLAN.md — AppState extension, world command handlers (Look/Move/Examine/Interact), ConnectionActor with tokio::select! and room broadcast
-- [ ] 02-03-PLAN.md — Newbie tutorial zone content, test helpers extension, and integration tests for all WRLD requirements
+- [x] 02-03-PLAN.md — Newbie tutorial zone content, test helpers extension, and integration tests for all WRLD requirements
 
 ### Phase 3: Character and Combat
 **Goal**: Players can create characters, fight monsters, collect gear, and die without losing progress
@@ -122,7 +122,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Server Foundation | 3/3 | Complete   | 2026-03-24 |
-| 2. World and Movement | 2/3 | In Progress|  |
+| 2. World and Movement | 3/3 | Complete   | 2026-03-24 |
 | 3. Character and Combat | 0/? | Not started | - |
 | 4. Native TUI Client | 0/? | Not started | - |
 | 5. Chat and Social | 0/? | Not started | - |
