@@ -321,8 +321,10 @@ fn render_game_log(f: &mut Frame, state: &GameState, area: Rect) {
         .title_alignment(Alignment::Left)
         .border_type(BorderType::Rounded)
         .style(Style::default().fg(Color::White));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
 
-    let items: Vec<ListItem> = state
+    let lines: Vec<Line> = state
         .game_log
         .iter()
         .map(|entry| {
@@ -334,15 +336,60 @@ fn render_game_log(f: &mut Frame, state: &GameState, area: Rect) {
                 Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
             } else if entry.contains("Victory") {
                 Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+            } else if entry.starts_with("💡") || entry.starts_with("⚔") {
+                Style::default().fg(Color::Cyan)
+            } else if entry.starts_with("🐀") {
+                Style::default().fg(Color::Yellow)
+            } else if entry.starts_with("═") || entry.starts_with("──") {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
-            ListItem::new(entry.as_str()).style(style)
+            Line::styled(entry.as_str(), style)
         })
         .collect();
 
-    let list = List::new(items).block(block);
-    f.render_widget(list, area);
+    // Auto-scroll: show last N lines that fit in the area
+    let paragraph = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((state.log_scroll, 0));
+
+    // Calculate scroll to show bottom
+    // We want to show the most recent entries
+    let content_height = state.game_log.len() as u16;
+    let view_height = inner.height;
+    let scroll = if content_height > view_height {
+        content_height - view_height + state.log_scroll
+    } else {
+        0
+    };
+
+    let paragraph = Paragraph::new(
+        state.game_log.iter().map(|entry| {
+            let style = if entry.starts_with("CRITICAL") || entry.contains("HIT!") {
+                Style::default().fg(Color::Red)
+            } else if entry.contains("MISS") {
+                Style::default().fg(Color::DarkGray)
+            } else if entry.contains("slain") || entry.contains("died") {
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+            } else if entry.contains("Victory") {
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+            } else if entry.starts_with("💡") || entry.starts_with("⚔") {
+                Style::default().fg(Color::Cyan)
+            } else if entry.starts_with("🐀") {
+                Style::default().fg(Color::Yellow)
+            } else if entry.starts_with("═") || entry.starts_with("──") {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            Line::styled(entry.as_str(), style)
+        }).collect::<Vec<Line>>()
+    )
+    .wrap(Wrap { trim: false })
+    .scroll((scroll, 0));
+
+    f.render_widget(paragraph, inner);
 }
 
 fn render_vitals(f: &mut Frame, state: &GameState, area: Rect) {

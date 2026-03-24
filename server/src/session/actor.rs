@@ -857,6 +857,8 @@ impl ConnectionActor {
         use crate::combat::engine::roll_initiative;
         use crate::combat::types::*;
 
+        debug!(?msg, "received combat message");
+
         let character_id = match &self.active_character_id {
             Some(id) => id.clone(),
             None => {
@@ -966,6 +968,7 @@ impl ConnectionActor {
                         names
                     }; // mgr dropped here
 
+                    debug!(combatants = ?names, "combat started");
                     self.send_combat(CombatServerMsg::CombatStart { combatants: names })
                         .await?;
                 }

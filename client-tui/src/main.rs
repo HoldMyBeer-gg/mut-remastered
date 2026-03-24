@@ -720,7 +720,7 @@ async fn handle_server_message(
                         }
                         if first_room {
                             state.log("".to_string());
-                            state.log("⚔ Welcome to MUT Remastered! Type HELP for commands.".to_string());
+                            state.log("⚔ Welcome to MUT Remastered v0.2! Type HELP for commands.".to_string());
                             state.log("💡 Try: LOOK, then move with N/S/E/W, ATTACK <monster> to fight.".to_string());
                             state.log("".to_string());
                         }
