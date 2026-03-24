@@ -1,0 +1,81 @@
+# Monster templates for MUT Remastered
+# Each monster defines its base stats, aggro behavior, and loot table.
+
+[[monsters]]
+id = "giant_rat"
+name = "Giant Rat"
+hp = 8
+ac = 12
+attack_bonus = 3
+damage_dice = 1
+damage_sides = 4
+damage_bonus = 1
+xp_value = 25
+aggro = "passive"
+loot = [
+    { item = "rat_tail", chance = 50 },
+    { gold_min = 1, gold_max = 5 },
+]
+
+[[monsters]]
+id = "goblin_scout"
+name = "Goblin Scout"
+hp = 15
+ac = 13
+attack_bonus = 4
+damage_dice = 1
+damage_sides = 6
+damage_bonus = 2
+xp_value = 50
+aggro = "aggressive"
+loot = [
+    { item = "rusty_shortsword", chance = 30 },
+    { item = "leather_scraps", chance = 50 },
+    { gold_min = 5, gold_max = 15 },
+]
+
+[[monsters]]
+id = "cave_spider"
+name = "Cave Spider"
+hp = 12
+ac = 11
+attack_bonus = 3
+damage_dice = 1
+damage_sides = 6
+damage_bonus = 0
+xp_value = 35
+aggro = "passive"
+loot = [
+    { item = "spider_silk", chance = 40 },
+    { gold_min = 2, gold_max = 8 },
+]
+
+[[monsters]]
+id = "skeleton_guard"
+name = "Skeleton Guard"
+hp = 20
+ac = 14
+attack_bonus = 5
+damage_dice = 1
+damage_sides = 8
+damage_bonus = 2
+xp_value = 75
+aggro = "aggressive"
+loot = [
+    { item = "bone_shard", chance = 60 },
+    { item = "old_shield", chance = 20 },
+    { gold_min = 10, gold_max = 25 },
+]
+
+[[monsters]]
+id = "training_dummy"
+name = "Training Dummy"
+hp = 5
+ac = 8
+attack_bonus = 0
+damage_dice = 1
+damage_sides = 1
+damage_bonus = 0
+xp_value = 5
+aggro = "passive"
+loot = []

@@ -76,6 +76,9 @@ pub struct RoomDef {
     /// Map from direction key (e.g., "north") to target room ID string.
     pub exits: HashMap<String, String>,
     pub triggers: Option<Vec<TriggerDef>>,
+    /// Monster spawn table for this room.
+    #[serde(default)]
+    pub spawns: Vec<crate::combat::types::SpawnEntry>,
 }
 
 /// A data-driven trigger defined in TOML.

@@ -7,6 +7,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{RwLock, broadcast};
 use tracing::{info, warn};
 
+use crate::combat::manager::CombatManager;
+use crate::combat::types::{ActiveMonster, MonsterTemplate, RespawnTimer};
 use crate::session::actor::ConnectionActor;
 use crate::world::types::{RoomId, World, WorldEvent};
 
@@ -20,6 +22,14 @@ pub struct AppState {
     pub world: Arc<RwLock<World>>,
     /// Per-room broadcast senders. Players subscribe on login/move; events sent on triggers/moves.
     pub room_channels: Arc<RwLock<HashMap<RoomId, broadcast::Sender<WorldEvent>>>>,
+    /// Combat manager: holds all active combat instances.
+    pub combat_manager: Arc<RwLock<CombatManager>>,
+    /// Monster templates loaded from TOML (immutable after startup).
+    pub monster_templates: Arc<HashMap<String, MonsterTemplate>>,
+    /// Active monster instances per room.
+    pub active_monsters: Arc<RwLock<HashMap<RoomId, Vec<ActiveMonster>>>>,
+    /// Respawn timers for dead monsters.
+    pub respawn_timers: Arc<RwLock<Vec<RespawnTimer>>>,
 }
 
 /// Accept loop: binds TCP listener and spawns one independent task per connection.

@@ -7,7 +7,8 @@ use tokio::{
 use tracing::{debug, warn};
 
 use protocol::auth::{ErrorCode, ServerMsg as AuthServerMsg};
-use protocol::codec::{decode_message, encode_message, NS_AUTH, NS_CHAR, NS_WORLD};
+use protocol::codec::{decode_message, encode_message, NS_AUTH, NS_CHAR, NS_COMBAT, NS_WORLD};
+use protocol::combat::ServerMsg as CombatServerMsg;
 use protocol::world::ServerMsg as WorldServerMsg;
 
 use crate::auth::{
@@ -148,6 +149,9 @@ impl ConnectionActor {
         }
         if let Ok(msg) = decode_message::<protocol::character::ClientMsg>(NS_CHAR, bytes) {
             return self.handle_character_message(msg).await;
+        }
+        if let Ok(msg) = decode_message::<protocol::combat::ClientMsg>(NS_COMBAT, bytes) {
+            return self.handle_combat_message(msg).await;
         }
         if let Ok(msg) = decode_message::<protocol::world::ClientMsg>(NS_WORLD, bytes) {
             return self.handle_world_message(msg).await;
@@ -325,10 +329,14 @@ impl ConnectionActor {
                 }
                 // Re-subscribe to new room's broadcast channel on successful move
                 if let Some(new_room) = new_room_id {
-                    let channels = self.state.room_channels.read().await;
-                    if let Some(sender) = channels.get(&new_room) {
-                        self.room_receiver = Some(sender.subscribe());
-                    }
+                    {
+                        let channels = self.state.room_channels.read().await;
+                        if let Some(sender) = channels.get(&new_room) {
+                            self.room_receiver = Some(sender.subscribe());
+                        }
+                    } // channels guard dropped here
+                    // Check for aggressive monsters in the new room
+                    self.check_aggro(&new_room).await;
                 }
             }
 
@@ -617,9 +625,286 @@ impl ConnectionActor {
                 )
                 .await;
                 self.send_world(room_desc).await?;
+
+                // Send initial vitals (CHAR-01)
+                self.send_vitals(&character_id).await?;
             }
         }
         Ok(())
+    }
+
+    /// Encode and write a combat ServerMsg to the TCP stream.
+    async fn send_combat(&mut self, msg: CombatServerMsg) -> anyhow::Result<()> {
+        let bytes = encode_message(NS_COMBAT, &msg)?;
+        self.writer.write_all(&bytes).await?;
+        Ok(())
+    }
+
+    /// Handle combat messages (attack, flee, use ability).
+    async fn handle_combat_message(
+        &mut self,
+        msg: protocol::combat::ClientMsg,
+    ) -> anyhow::Result<()> {
+        use crate::combat::engine::roll_initiative;
+        use crate::combat::types::*;
+
+        let character_id = match &self.active_character_id {
+            Some(id) => id.clone(),
+            None => {
+                self.send_combat(CombatServerMsg::ActionFail {
+                    reason: "you must select a character first".to_string(),
+                })
+                .await?;
+                return Ok(());
+            }
+        };
+        let character_name = self
+            .active_character_name
+            .clone()
+            .unwrap_or_else(|| character_id.clone());
+
+        // Get current room
+        let room_id = {
+            let w = self.state.world.read().await;
+            w.player_positions.get(&character_id).cloned()
+        };
+        let room_id = match room_id {
+            Some(r) => r,
+            None => {
+                self.send_combat(CombatServerMsg::ActionFail {
+                    reason: "you are not in the world".to_string(),
+                })
+                .await?;
+                return Ok(());
+            }
+        };
+
+        match msg {
+            protocol::combat::ClientMsg::Attack { target } => {
+                // Find the target monster in this room
+                let monster_info = {
+                    let monsters = self.state.active_monsters.read().await;
+                    if let Some(room_monsters) = monsters.get(&room_id) {
+                        room_monsters
+                            .iter()
+                            .find(|m| {
+                                m.is_alive()
+                                    && m.name.to_lowercase().contains(&target.to_lowercase())
+                            })
+                            .map(|m| (m.id.clone(), m.name.clone()))
+                    } else {
+                        None
+                    }
+                };
+
+                let (monster_id, monster_name) = match monster_info {
+                    Some(info) => info,
+                    None => {
+                        self.send_combat(CombatServerMsg::ActionFail {
+                            reason: format!("No target '{}' found here.", target),
+                        })
+                        .await?;
+                        return Ok(());
+                    }
+                };
+
+                // Check if already in combat in this room
+                let already_in_combat = {
+                    let mgr = self.state.combat_manager.read().await;
+                    mgr.has_combat(&room_id)
+                };
+
+                if already_in_combat {
+                    // Queue attack action in existing combat
+                    let mut mgr = self.state.combat_manager.write().await;
+                    mgr.queue_action(
+                        &room_id,
+                        CombatantId::Player(character_id.clone()),
+                        CombatAction::Attack {
+                            target: CombatantId::Monster(monster_id),
+                        },
+                    );
+                } else {
+                    // Start new combat
+                    let dex_score = self.load_character_dex(&character_id).await;
+                    let dex_mod = crate::character::types::ability_modifier(dex_score);
+
+                    let combatants = vec![
+                        CombatantInfo {
+                            id: CombatantId::Player(character_id.clone()),
+                            name: character_name.clone(),
+                            initiative: roll_initiative(dex_mod),
+                        },
+                        CombatantInfo {
+                            id: CombatantId::Monster(monster_id.clone()),
+                            name: monster_name.clone(),
+                            initiative: roll_initiative(0), // Monsters use 0 DEX mod for simplicity
+                        },
+                    ];
+
+                    let names = {
+                        let mut mgr = self.state.combat_manager.write().await;
+                        let names = mgr.start_combat(room_id.clone(), combatants);
+
+                        // Queue the player's first attack
+                        mgr.queue_action(
+                            &room_id,
+                            CombatantId::Player(character_id.clone()),
+                            CombatAction::Attack {
+                                target: CombatantId::Monster(monster_id),
+                            },
+                        );
+                        names
+                    }; // mgr dropped here
+
+                    self.send_combat(CombatServerMsg::CombatStart { combatants: names })
+                        .await?;
+                }
+            }
+
+            protocol::combat::ClientMsg::Flee => {
+                let in_combat = {
+                    let mut mgr = self.state.combat_manager.write().await;
+                    if let Some(combat_room) = mgr.find_combat_for_player(&character_id) {
+                        mgr.queue_action(
+                            &combat_room,
+                            CombatantId::Player(character_id.clone()),
+                            CombatAction::Flee,
+                        );
+                        true
+                    } else {
+                        false
+                    }
+                }; // mgr dropped here
+
+                if !in_combat {
+                    self.send_combat(CombatServerMsg::ActionFail {
+                        reason: "You are not in combat.".to_string(),
+                    })
+                    .await?;
+                }
+            }
+
+            protocol::combat::ClientMsg::UseAbility { ability_name } => {
+                // TODO: Implement class abilities
+                self.send_combat(CombatServerMsg::ActionFail {
+                    reason: format!("Ability '{}' is not yet implemented.", ability_name),
+                })
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Load a character's DEX score from the database.
+    async fn load_character_dex(&self, character_id: &str) -> u8 {
+        let row: Option<(i32,)> =
+            sqlx::query_as("SELECT dex_score FROM characters WHERE id = ?")
+                .bind(character_id)
+                .fetch_optional(&self.state.db)
+                .await
+                .unwrap_or(None);
+        row.map(|(d,)| d as u8).unwrap_or(10)
+    }
+
+    /// Send current vitals to the client.
+    async fn send_vitals(&mut self, character_id: &str) -> anyhow::Result<()> {
+        let row: Option<(i32, i32, i32, i32, i32, i32, i32, i64)> = sqlx::query_as(
+            "SELECT hp, max_hp, mana, max_mana, stamina, max_stamina, xp, level FROM characters WHERE id = ?"
+        )
+        .bind(character_id)
+        .fetch_optional(&self.state.db)
+        .await?;
+
+        if let Some((hp, max_hp, mana, max_mana, stamina, max_stamina, xp, level)) = row {
+            self.send_combat(CombatServerMsg::Vitals {
+                hp,
+                max_hp,
+                mana,
+                max_mana,
+                stamina,
+                max_stamina,
+                xp,
+                level: level as i32,
+            })
+            .await?;
+        }
+        Ok(())
+    }
+
+    /// Check for aggressive monsters when entering a room and auto-start combat.
+    async fn check_aggro(&mut self, room_id: &crate::world::types::RoomId) {
+        let character_id = match &self.active_character_id {
+            Some(id) => id.clone(),
+            None => return,
+        };
+        let character_name = self
+            .active_character_name
+            .clone()
+            .unwrap_or_else(|| character_id.clone());
+
+        // Check for aggressive monsters in this room
+        let aggressive_monster = {
+            let monsters = self.state.active_monsters.read().await;
+            if let Some(room_monsters) = monsters.get(room_id) {
+                // Find first alive aggressive monster that's not already in combat
+                let templates = &self.state.monster_templates;
+                room_monsters
+                    .iter()
+                    .find(|m| {
+                        m.is_alive()
+                            && templates
+                                .get(&m.template_id)
+                                .map(|t| t.is_aggressive())
+                                .unwrap_or(false)
+                    })
+                    .map(|m| (m.id.clone(), m.name.clone()))
+            } else {
+                None
+            }
+        };
+
+        if let Some((monster_id, monster_name)) = aggressive_monster {
+            // Don't start combat if one is already active in this room
+            let already_in_combat = {
+                let mgr = self.state.combat_manager.read().await;
+                mgr.has_combat(room_id)
+            };
+
+            if !already_in_combat {
+                use crate::combat::engine::roll_initiative;
+                use crate::combat::types::*;
+
+                let dex_score = self.load_character_dex(&character_id).await;
+                let dex_mod = crate::character::types::ability_modifier(dex_score);
+
+                let combatants = vec![
+                    CombatantInfo {
+                        id: CombatantId::Player(character_id.clone()),
+                        name: character_name,
+                        initiative: roll_initiative(dex_mod),
+                    },
+                    CombatantInfo {
+                        id: CombatantId::Monster(monster_id),
+                        name: monster_name,
+                        initiative: roll_initiative(0),
+                    },
+                ];
+
+                let names = {
+                    let mut mgr = self.state.combat_manager.write().await;
+                    mgr.start_combat(room_id.clone(), combatants)
+                }; // mgr dropped here
+
+                // Send CombatStart to player
+                if let Err(e) = self
+                    .send_combat(CombatServerMsg::CombatStart { combatants: names })
+                    .await
+                {
+                    warn!(error = %e, "failed to send aggro CombatStart");
+                }
+            }
+        }
     }
 
     /// Graceful cleanup on connection drop: delete the active session and remove character from world.

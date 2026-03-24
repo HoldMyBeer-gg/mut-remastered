@@ -6,6 +6,7 @@
 /// `server::session` available to those tests.
 pub mod auth;
 pub mod character;
+pub mod combat;
 pub mod config;
 pub mod db;
 pub mod net;

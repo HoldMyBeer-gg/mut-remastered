@@ -84,6 +84,11 @@ lore = "The grate covers an old drainage tunnel. Locals whisper it connects to t
 [rooms.exits]
 north = "starting_village:market_square"
 
+[[rooms.spawns]]
+monster = "giant_rat"
+count = 2
+respawn_secs = 120
+
 [[rooms.triggers]]
 command = "examine grate"
 effects = [

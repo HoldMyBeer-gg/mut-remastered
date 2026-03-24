@@ -106,6 +106,10 @@ impl TestServer {
             session_ttl_secs: 3600,
             world,
             room_channels,
+            combat_manager: Arc::new(RwLock::new(server::combat::manager::CombatManager::new())),
+            monster_templates: Arc::new(std::collections::HashMap::new()),
+            active_monsters: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            respawn_timers: Arc::new(RwLock::new(Vec::new())),
         };
 
         // Bind to port 0 to get an OS-assigned free port
@@ -348,7 +352,37 @@ impl TestClient {
         .await;
         let _selected = self.recv_char().await; // CharacterSelected
         let _room_desc = self.recv_world().await; // Initial RoomDescription
+        let _vitals = self.recv_combat().await; // Initial Vitals
 
         (session_token, character_id)
+    }
+
+    /// Encode and send a combat `ClientMsg` to the server.
+    pub async fn send_combat(&mut self, msg: &protocol::combat::ClientMsg) {
+        let bytes =
+            encode_message(protocol::codec::NS_COMBAT, msg).expect("failed to encode combat ClientMsg");
+        self.stream
+            .write_all(&bytes)
+            .await
+            .expect("failed to write combat msg to test server");
+    }
+
+    /// Read the next length-prefixed frame and decode it as a combat `ServerMsg`.
+    pub async fn recv_combat(&mut self) -> protocol::combat::ServerMsg {
+        let mut len_buf = [0u8; 4];
+        self.stream
+            .read_exact(&mut len_buf)
+            .await
+            .expect("failed to read combat msg length prefix");
+        let payload_len = u32::from_le_bytes(len_buf) as usize;
+
+        let mut payload = vec![0u8; payload_len];
+        self.stream
+            .read_exact(&mut payload)
+            .await
+            .expect("failed to read combat msg payload");
+
+        decode_message::<protocol::combat::ServerMsg>(protocol::codec::NS_COMBAT, &payload)
+            .expect("failed to decode combat ServerMsg")
     }
 }
