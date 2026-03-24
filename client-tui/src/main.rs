@@ -137,7 +137,7 @@ async fn run_app(
 
         // Poll for events (input + server messages)
         // Use a short timeout to check server messages frequently
-        if event::poll(Duration::from_millis(16))? { // ~60fps
+        if event::poll(Duration::from_millis(33))? { // ~30fps max
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind != KeyEventKind::Press {
@@ -742,7 +742,9 @@ async fn handle_server_message(
                         state.monsters_here = monsters_here.clone();
                         state.record_room();
                         for hint in hints {
-                            state.log(format!("💡 {}", hint));
+                            if state.seen_hints.insert(hint.clone()) {
+                                state.log(format!("💡 {}", hint));
+                            }
                         }
                         if !monsters_here.is_empty() {
                             for m in &monsters_here {

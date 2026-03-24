@@ -119,6 +119,8 @@ pub struct GameState {
     pub camera_target_angle: f64,
     /// Camera "walk" animation progress (0.0 = just entered, 1.0 = settled).
     pub camera_walk: f64,
+    /// Hints already shown (prevent repeats).
+    pub seen_hints: std::collections::HashSet<String>,
     /// Whether camera is currently animating a transition.
     pub camera_animating: bool,
     /// Whether we're currently in combat.
@@ -166,6 +168,7 @@ impl GameState {
             camera_target_angle: 0.0,
             camera_walk: 1.0,
             camera_animating: false,
+            seen_hints: std::collections::HashSet::new(),
             in_combat: false,
             combat_round: 0,
             last_round_frame: 0,
