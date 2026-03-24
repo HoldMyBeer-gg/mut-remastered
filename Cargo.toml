@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = ["protocol", "server", "client-tui"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", features = ["alloc"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+anyhow = "1"
+thiserror = "2"
