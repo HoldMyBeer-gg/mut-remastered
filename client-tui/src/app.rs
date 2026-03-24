@@ -102,6 +102,11 @@ pub struct GameState {
     pub history_index: Option<usize>,
     /// Explored rooms for minimap: room_id -> (name, exits).
     pub explored_rooms: HashMap<String, ExploredRoom>,
+    /// Room connection graph: (from_room_id, direction) -> to_room_id.
+    /// Populated when the player moves (from MoveOk responses).
+    pub room_connections: HashMap<(String, String), String>,
+    /// Last movement direction (set when a move command is sent, before MoveOk response).
+    pub last_move_direction: Option<String>,
     /// Scroll offset for game log (0 = bottom).
     pub log_scroll: u16,
 }
@@ -134,6 +139,8 @@ impl GameState {
             history: Vec::new(),
             history_index: None,
             explored_rooms: HashMap::new(),
+            room_connections: HashMap::new(),
+            last_move_direction: None,
             log_scroll: 0,
         }
     }

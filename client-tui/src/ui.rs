@@ -231,18 +231,18 @@ pub fn render_game(f: &mut Frame, state: &GameState) {
     ])
     .split(area);
 
-    // Top section: room description (left 70%) + minimap (right 30%)
+    // Top section: room description (left 50%) + dungeon map (right 50%)
     let top_chunks = Layout::horizontal([
-        Constraint::Percentage(70),
-        Constraint::Percentage(30),
+        Constraint::Percentage(50),
+        Constraint::Percentage(50),
     ])
     .split(main_chunks[0]);
 
     // Room description pane
     render_room_pane(f, state, top_chunks[0]);
 
-    // Minimap/compass pane
-    render_minimap(f, state, top_chunks[1]);
+    // Dungeon map pane (replaces compass)
+    crate::map::render_map(f, state, top_chunks[1]);
 
     // Game log
     render_game_log(f, state, main_chunks[1]);

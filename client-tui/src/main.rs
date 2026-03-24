@@ -4,6 +4,7 @@
 //! and presents a split-panel game interface using Ratatui.
 
 mod app;
+mod map;
 mod net;
 mod ui;
 
@@ -375,6 +376,20 @@ async fn handle_game_input(
             state.input.clear();
 
             // Parse and send command
+            let lower_cmd = cmd.to_lowercase();
+            let first_word = lower_cmd.split_whitespace().next().unwrap_or("");
+            match first_word {
+                "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "u" | "up" | "d" | "down" => {
+                    // Normalize direction for tracking
+                    let dir = match first_word {
+                        "n" => "north", "s" => "south", "e" => "east", "w" => "west",
+                        "u" => "up", "d" => "down",
+                        other => other,
+                    };
+                    state.last_move_direction = Some(dir.to_string());
+                }
+                _ => {}
+            }
             parse_and_send_command(&cmd, tx).await;
         }
         KeyCode::Up => {
@@ -653,8 +668,27 @@ async fn handle_server_message(
                             state.log(format!("💡 {}", hint));
                         }
                     }
-                    protocol::world::ServerMsg::MoveOk { to_room, .. } => {
-                        state.log(format!("You move to a new area."));
+                    protocol::world::ServerMsg::MoveOk { from_room, to_room } => {
+                        // Record room connection for the map
+                        if let Some(dir) = state.last_move_direction.take() {
+                            state.room_connections.insert(
+                                (from_room.clone(), dir.clone()),
+                                to_room.clone(),
+                            );
+                            // Also record the reverse connection
+                            let reverse_dir = match dir.as_str() {
+                                "north" => "south", "south" => "north",
+                                "east" => "west", "west" => "east",
+                                "up" => "down", "down" => "up",
+                                _ => "",
+                            };
+                            if !reverse_dir.is_empty() {
+                                state.room_connections.insert(
+                                    (to_room.clone(), reverse_dir.to_string()),
+                                    from_room.clone(),
+                                );
+                            }
+                        }
                     }
                     protocol::world::ServerMsg::MoveFail { reason } => {
                         state.log(format!("⛔ {}", reason));
