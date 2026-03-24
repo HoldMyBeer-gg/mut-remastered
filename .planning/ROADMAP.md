@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Server Foundation** - Tokio actor-per-session server, ECS world stub, SQLx schema, auth, and shared protocol crate (completed 2026-03-24)
 - [x] **Phase 2: World and Movement** - Room system, movement commands, persistent world state, newbie area, and lore (completed 2026-03-24)
-- [ ] **Phase 3: Character and Combat** - Character creation, D&D-flavored combat, inventory/equipment, and NPC monsters
+- [x] **Phase 3: Character and Combat** - Character creation, D&D-flavored combat, inventory/equipment, and NPC monsters (completed 2026-03-24)
 - [ ] **Phase 4: Native TUI Client** - Ratatui split-panel TUI binary with minimap, vitals bar, and full iTerm2/xterm compatibility
 - [ ] **Phase 5: Chat and Social** - Local/global chat channels, IC/OOC separation, player inspection, and character descriptions
 - [ ] **Phase 6: Browser Client** - xterm.js web client with feature parity, WebSocket transport, and flow control
@@ -64,8 +64,11 @@ Plans:
   3. HP, mana, and stamina are always visible in the game interface without the player needing to type a command
   4. A player can pick up items, drop them, and equip gear to named body slots — equipped gear changes their displayed stats
   5. When a player dies, they respawn at their bind point with gear intact and an XP debt rather than losing everything
-**Plans**: TBD
-**UI hint**: yes
+**Plans:** 3/3 plans complete
+Plans:
+- [x] 03-01-PLAN.md — Character creation: 8 races, 5 classes, point-buy, DB schema, selection flow
+- [x] 03-02-PLAN.md — Combat engine: D&D-lite dice, CombatManager, tick loop, NPC spawns, death/respawn
+- [x] 03-03-PLAN.md — Inventory: items, equipment, stats, bio, loot, integration tests
 
 ### Phase 4: Native TUI Client
 **Goal**: The native terminal client is a polished, split-panel experience that works correctly on both iTerm2 and xterm
