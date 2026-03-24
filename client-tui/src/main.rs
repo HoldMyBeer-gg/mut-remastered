@@ -4,6 +4,7 @@
 //! and presents a split-panel game interface using Ratatui.
 
 mod app;
+mod dungeon_view;
 mod map;
 mod net;
 mod ui;

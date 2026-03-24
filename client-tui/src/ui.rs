@@ -245,8 +245,8 @@ pub fn render_game(f: &mut Frame, state: &GameState) {
     // Room description pane
     render_room_pane(f, state, top_chunks[0]);
 
-    // Dungeon map pane
-    crate::map::render_map(f, state, top_chunks[1]);
+    // First-person dungeon view
+    crate::dungeon_view::render_dungeon_view(f, state, top_chunks[1]);
 
     // Game log
     render_game_log(f, state, main_chunks[2]);
