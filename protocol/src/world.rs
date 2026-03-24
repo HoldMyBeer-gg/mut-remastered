@@ -49,6 +49,8 @@ pub enum ServerMsg {
         exits: Vec<String>,
         hints: Vec<String>,
         players_here: Vec<String>,
+        /// Monsters visible in this room.
+        monsters_here: Vec<String>,
     },
     MoveOk {
         from_room: String,

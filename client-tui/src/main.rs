@@ -375,9 +375,53 @@ async fn handle_game_input(
             state.history_index = None;
             state.input.clear();
 
-            // Parse and send command
+            // Handle client-side commands first
             let lower_cmd = cmd.to_lowercase();
             let first_word = lower_cmd.split_whitespace().next().unwrap_or("");
+
+            if first_word == "help" || first_word == "?" || first_word == "commands" {
+                state.log("".to_string());
+                state.log("═══ MUT Remastered — Commands ═══".to_string());
+                state.log("".to_string());
+                state.log("── Movement ──".to_string());
+                state.log("  n/s/e/w/u/d     Move in a direction (or north/south/east/west/up/down)".to_string());
+                state.log("  look (l)        Look around the room".to_string());
+                state.log("  examine <thing> Examine something in the room".to_string());
+                state.log("".to_string());
+                state.log("── Combat ──".to_string());
+                state.log("  attack <target> Attack a monster".to_string());
+                state.log("  flee            Try to escape combat (50% chance)".to_string());
+                state.log("".to_string());
+                state.log("── Inventory ──".to_string());
+                state.log("  inv             Show your inventory".to_string());
+                state.log("  get <item>      Pick up an item from the floor".to_string());
+                state.log("  drop <item>     Drop an item".to_string());
+                state.log("  equip <item>    Equip an item".to_string());
+                state.log("  unequip <slot>  Unequip a slot (weapon, body, etc.)".to_string());
+                state.log("".to_string());
+                state.log("── Character ──".to_string());
+                state.log("  stats           View your character stats".to_string());
+                state.log("  bio <text>      Set your biography".to_string());
+                state.log("  desc <text>     Set your visible description".to_string());
+                state.log("".to_string());
+                state.log("── Social ──".to_string());
+                state.log("  say <text>      Talk to players in the room (IC)".to_string());
+                state.log("  emote <text>    Perform an emote (IC)".to_string());
+                state.log("  gossip <text>   Global chat (OOC)".to_string());
+                state.log("  whisper <who> <text>  Private message".to_string());
+                state.log("  lookat <player> Inspect another player".to_string());
+                state.log("  toggle <channel> Toggle a chat channel on/off".to_string());
+                state.log("".to_string());
+                state.log("── Other ──".to_string());
+                state.log("  help            Show this help".to_string());
+                state.log("  quit            Log out and exit".to_string());
+                state.log("".to_string());
+                state.log("💡 Tip: Head south to the Shadowed Alley to fight Giant Rats!".to_string());
+                state.log("═══════════════════════════════════".to_string());
+                return;
+            }
+
+            // Track move direction for map
             match first_word {
                 "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "u" | "up" | "d" | "down" => {
                     // Normalize direction for tracking
@@ -657,7 +701,9 @@ async fn handle_server_message(
                         exits,
                         hints,
                         players_here,
+                        monsters_here,
                     } => {
+                        let first_room = state.room_id.is_empty();
                         state.room_id = room_id;
                         state.room_name = name;
                         state.room_description = description;
@@ -666,6 +712,17 @@ async fn handle_server_message(
                         state.record_room();
                         for hint in hints {
                             state.log(format!("💡 {}", hint));
+                        }
+                        if !monsters_here.is_empty() {
+                            for m in &monsters_here {
+                                state.log(format!("🐀 You see a {} here.", m));
+                            }
+                        }
+                        if first_room {
+                            state.log("".to_string());
+                            state.log("⚔ Welcome to MUT Remastered! Type HELP for commands.".to_string());
+                            state.log("💡 Try: LOOK, then move with N/S/E/W, ATTACK <monster> to fight.".to_string());
+                            state.log("".to_string());
                         }
                     }
                     protocol::world::ServerMsg::MoveOk { from_room, to_room } => {

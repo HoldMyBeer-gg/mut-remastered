@@ -328,6 +328,7 @@ impl ConnectionActor {
             protocol::world::ClientMsg::Look => {
                 let resp = crate::world::commands::handle_look(
                     &self.state.world,
+                    &self.state.active_monsters,
                     &character_id,
                     self.tutorial_complete,
                 )
@@ -338,6 +339,7 @@ impl ConnectionActor {
             protocol::world::ClientMsg::Move { direction } => {
                 let (resp, auto_look, new_room_id) = crate::world::commands::handle_move(
                     &self.state.world,
+                    &self.state.active_monsters,
                     &self.state.room_channels,
                     &self.state.db,
                     &character_id,
@@ -823,6 +825,7 @@ impl ConnectionActor {
                 // Send initial room description
                 let room_desc = crate::world::commands::handle_look(
                     &self.state.world,
+                    &self.state.active_monsters,
                     &character_id,
                     self.tutorial_complete,
                 )

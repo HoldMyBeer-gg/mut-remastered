@@ -21,6 +21,7 @@ use protocol::world::ServerMsg;
 /// - Lists other players present in the room.
 pub async fn handle_look(
     world: &Arc<RwLock<World>>,
+    active_monsters: &Arc<RwLock<HashMap<RoomId, Vec<crate::combat::types::ActiveMonster>>>>,
     account_id: &str,
     tutorial_complete: bool,
 ) -> ServerMsg {
@@ -76,6 +77,20 @@ pub async fn handle_look(
         vec![]
     };
 
+    // Monsters in this room
+    let monsters_here: Vec<String> = {
+        let monsters = active_monsters.read().await;
+        if let Some(room_monsters) = monsters.get(&room_id) {
+            room_monsters
+                .iter()
+                .filter(|m| m.is_alive())
+                .map(|m| m.name.clone())
+                .collect()
+        } else {
+            vec![]
+        }
+    };
+
     ServerMsg::RoomDescription {
         room_id: room_id.0.clone(),
         name: room_def.name.clone(),
@@ -83,6 +98,7 @@ pub async fn handle_look(
         exits,
         hints,
         players_here,
+        monsters_here,
     }
 }
 
@@ -93,6 +109,7 @@ pub async fn handle_look(
 /// On failure: MoveFail + None + None.
 pub async fn handle_move(
     world: &Arc<RwLock<World>>,
+    active_monsters: &Arc<RwLock<HashMap<RoomId, Vec<crate::combat::types::ActiveMonster>>>>,
     room_channels: &Arc<RwLock<HashMap<RoomId, broadcast::Sender<WorldEvent>>>>,
     db: &SqlitePool,
     account_id: &str,
@@ -216,7 +233,7 @@ pub async fn handle_move(
     .await;
 
     // Auto-look at the new room
-    let room_desc = handle_look(world, account_id, tutorial_complete).await;
+    let room_desc = handle_look(world, active_monsters, account_id, tutorial_complete).await;
 
     (
         ServerMsg::MoveOk {
