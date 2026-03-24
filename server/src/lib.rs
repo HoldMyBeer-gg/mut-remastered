@@ -9,3 +9,4 @@ pub mod config;
 pub mod db;
 pub mod net;
 pub mod session;
+pub mod world;
