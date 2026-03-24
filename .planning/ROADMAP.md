@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Server Foundation** - Tokio actor-per-session server, ECS world stub, SQLx schema, auth, and shared protocol crate (completed 2026-03-24)
 - [x] **Phase 2: World and Movement** - Room system, movement commands, persistent world state, newbie area, and lore (completed 2026-03-24)
 - [x] **Phase 3: Character and Combat** - Character creation, D&D-flavored combat, inventory/equipment, and NPC monsters (completed 2026-03-24)
-- [ ] **Phase 4: Native TUI Client** - Ratatui split-panel TUI binary with minimap, vitals bar, and full iTerm2/xterm compatibility
+- [x] **Phase 4: Native TUI Client** - Ratatui split-panel TUI binary with minimap, vitals bar, and full iTerm2/xterm compatibility (completed 2026-03-24)
 - [ ] **Phase 5: Chat and Social** - Local/global chat channels, IC/OOC separation, player inspection, and character descriptions
 - [ ] **Phase 6: Browser Client** - xterm.js web client with feature parity, WebSocket transport, and flow control
 - [ ] **Phase 7: Procedural Dungeons** - BSP dungeon generator, hand-crafted set piece injection, connectivity guarantees, and dungeon lore
