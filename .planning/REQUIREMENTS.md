@@ -125,13 +125,55 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-08 | Phase 1 | Pending |
+| NETW-01 | Phase 1 | Pending |
+| NETW-04 | Phase 1 | Pending |
+| WRLD-01 | Phase 2 | Pending |
+| WRLD-02 | Phase 2 | Pending |
+| WRLD-03 | Phase 2 | Pending |
+| WRLD-04 | Phase 2 | Pending |
+| WRLD-05 | Phase 2 | Pending |
+| WRLD-06 | Phase 2 | Pending |
+| AUTH-03 | Phase 3 | Pending |
+| AUTH-04 | Phase 3 | Pending |
+| AUTH-05 | Phase 3 | Pending |
+| AUTH-06 | Phase 3 | Pending |
+| AUTH-07 | Phase 3 | Pending |
+| CHAR-01 | Phase 3 | Pending |
+| CHAR-02 | Phase 3 | Pending |
+| CHAR-03 | Phase 3 | Pending |
+| CHAR-04 | Phase 3 | Pending |
+| CHAR-05 | Phase 3 | Pending |
+| CMBT-01 | Phase 3 | Pending |
+| CMBT-02 | Phase 3 | Pending |
+| CMBT-03 | Phase 3 | Pending |
+| CMBT-04 | Phase 3 | Pending |
+| CMBT-05 | Phase 3 | Pending |
+| CMBT-06 | Phase 3 | Pending |
+| TUI-01 | Phase 4 | Pending |
+| TUI-02 | Phase 4 | Pending |
+| TUI-03 | Phase 4 | Pending |
+| TUI-04 | Phase 4 | Pending |
+| SOCL-01 | Phase 5 | Pending |
+| SOCL-02 | Phase 5 | Pending |
+| SOCL-03 | Phase 5 | Pending |
+| SOCL-04 | Phase 5 | Pending |
+| SOCL-05 | Phase 5 | Pending |
+| SOCL-06 | Phase 5 | Pending |
+| NETW-02 | Phase 6 | Pending |
+| NETW-03 | Phase 6 | Pending |
+| DUNG-01 | Phase 7 | Pending |
+| DUNG-02 | Phase 7 | Pending |
+| DUNG-03 | Phase 7 | Pending |
+| DUNG-04 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 33 total
-- Mapped to phases: 0
-- Unmapped: 33 ⚠️
+- Mapped to phases: 33
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after initial definition*
+*Last updated: 2026-03-23 after roadmap creation*
