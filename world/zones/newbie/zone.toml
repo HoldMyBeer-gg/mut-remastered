@@ -1,0 +1,204 @@
+zone_id = "newbie"
+zone_name = "The Warden's Academy"
+
+[[rooms]]
+id = "newbie:entrance"
+name = "The Crossing Gate"
+description = """
+A weathered stone archway marks the entrance to the Warden's Academy, a place where \
+newcomers are prepared for the perils of the wider world. Faded Elvish runes spiral up \
+the columns on either side, still faintly luminous in the grey morning light. A cobbled \
+path leads north through the gate into an open courtyard, and a bulletin board hangs \
+from the eastern wall beneath a canvas awning."""
+lore = """
+The runes are written in Old Elvish, a tongue seldom spoken since the Sundering. Translated, \
+they read: 'Enter without fear; depart without ignorance.' The inscription was carved by \
+the first Warden of Newcomers three centuries ago, when the dungeon beneath Briarhollow first \
+began drawing adventurers from distant lands."""
+hints = [
+    "Try typing 'north' or just 'n' to move through the gate into the courtyard.",
+    "Type 'look' at any time to see your surroundings again.",
+    "Type 'examine runes' to read the inscription above the gate.",
+]
+
+[rooms.exits]
+north = "newbie:courtyard"
+east = "newbie:notice_board"
+
+[[rooms.triggers]]
+command = "examine runes"
+effects = [
+    { kind = "message", text = "The Elvish script spirals upward in elegant arcs. You trace the letters with your eyes and, though you do not know the language, the meaning settles in your mind like a whispered truth: 'Enter without fear; depart without ignorance.'" },
+]
+
+[[rooms]]
+id = "newbie:notice_board"
+name = "The Notice Board"
+description = """
+A broad cork board sheltered beneath a canvas awning. Dozens of parchment notices are \
+pinned to its surface in overlapping layers — announcements, warnings, and hand-drawn maps \
+in varying states of decay. The oldest notices have faded to near-illegibility, while newer \
+ones bear the sharp ink of a careful hand. The archway back west leads to the crossing gate."""
+lore = """
+The board is maintained by the Warden of Newcomers, who updates it each season with \
+practical advice for those preparing to enter the dungeon. A small brass plaque at the \
+corner reads: 'Posted by the Order of the Open Gate, for the benefit of all who would \
+venture below.'"""
+hints = [
+    "Type 'examine board' to read what's posted here.",
+]
+
+[rooms.exits]
+west = "newbie:entrance"
+
+[[rooms.triggers]]
+command = "examine board"
+effects = [
+    { kind = "message", text = "The most recent notice is written in a clear, unhurried hand:\n\n  COMMANDS FOR THE NEWLY ARRIVED\n  --------------------------------\n  LOOK              — Survey your surroundings\n  N / S / E / W     — Move in a direction (NORTH, SOUTH, EAST, WEST)\n  U / D             — Move UP or DOWN\n  EXAMINE <target>  — Inspect an object for hidden detail\n  INTERACT <phrase> — Interact with something (e.g., PULL LEVER)\n\n  The Warden asks that all newcomers read these before proceeding north." },
+]
+
+[[rooms]]
+id = "newbie:courtyard"
+name = "The Quiet Courtyard"
+description = """
+A broad flagstone courtyard enclosed by low stone walls draped with climbing ivy. At its \
+center stands a wide fountain of pale marble, its basin carved with scenes of dungeon \
+expeditions — adventurers, monsters, and treasure rendered in exquisite, faded relief. \
+Water still trickles from a bronze fish at the basin's heart. Paths branch in every direction: \
+south back to the gate, east to a practice hall, north to an armoury, and west to a walled garden."""
+lore = """
+The fountain was a gift from the Adventurers' Guild of Kalindra, presented to the Academy \
+two hundred years ago after the first great dungeon expedition cleared the upper reaches of \
+the Briarhollow labyrinth. The carved scenes depict that very expedition — the guild's \
+founding members immortalised in pale marble, their faces worn smooth by generations of \
+curious fingers."""
+hints = [
+    "Explore freely — there are paths in every direction from here.",
+    "Try 'examine fountain' to learn about the courtyard's history.",
+]
+
+[rooms.exits]
+south = "newbie:entrance"
+east = "newbie:practice_hall"
+north = "newbie:armory"
+west = "newbie:garden"
+
+[[rooms.triggers]]
+command = "examine fountain"
+condition = { key = "fountain_touched", value = "false" }
+effects = [
+    { kind = "set_state", key = "fountain_touched", value = "true" },
+    { kind = "message", text = "You lean over the fountain's edge and run your fingers along one of the carved figures — a cloaked archer drawing a bow. At your touch, the relief glows with a faint golden light that pulses once and fades. The water in the basin shimmers." },
+    { kind = "broadcast", text = "{player} touches the fountain. For a moment, the carved figures glow with golden light." },
+]
+
+[[rooms.triggers]]
+command = "examine fountain"
+effects = [
+    { kind = "message", text = "The marble basin is carved with scenes of the first great dungeon expedition. The figures are worn smooth in places where countless adventurers have touched them before you." },
+]
+
+[[rooms]]
+id = "newbie:practice_hall"
+name = "The Practice Hall"
+description = """
+A long rectangular hall with straw dummies arranged in rows along the walls, each bearing \
+painted targets at chest and head height. Weapon racks line the far wall, holding practice \
+swords of blunted iron and ash-wood staves worn smooth by years of use. A heavy iron lever \
+protrudes from the east wall beside a seamless section of stone."""
+lore = """
+The weapon racks bear a faded inscription: 'Borrow freely; return faithfully.' Generations \
+of novice adventurers have trained here, and the floor is marked by the scuffs and dents \
+of a thousand sparring sessions. The lever beside the east wall is new, recently installed \
+by the Warden — its purpose a small mystery left as a lesson in curiosity."""
+hints = [
+    "Try 'pull lever' to see what happens — some objects in the world respond to commands.",
+]
+
+[rooms.exits]
+west = "newbie:courtyard"
+
+[[rooms.triggers]]
+command = "pull lever"
+effects = [
+    { kind = "set_state", key = "lever_state", value = "true" },
+    { kind = "reveal_exit", direction = "south", target = "newbie:hidden_chamber" },
+    { kind = "broadcast", text = "{player} pulls the iron lever. A deep mechanical groan echoes through the hall as hidden gears engage." },
+    { kind = "message", text = "The lever moves stiffly, then gives with a satisfying clunk. Behind you, a section of the east wall grinds sideways on hidden rollers, revealing a low doorway. A faint smell of old parchment drifts out from the darkness beyond." },
+]
+
+[[rooms]]
+id = "newbie:hidden_chamber"
+name = "The Hidden Chamber"
+description = """
+A snug stone room lit by a single oil lantern hung from an iron hook. Shelves line \
+every wall from floor to ceiling, densely packed with leather-bound journals, folded \
+maps, and bundles of letters tied with red cord. A low reading desk sits in the centre \
+of the room, a thick sheaf of notes spread open upon it. The doorway north leads back \
+to the practice hall."""
+
+[rooms.exits]
+north = "newbie:practice_hall"
+
+[[rooms.triggers]]
+command = "read notes"
+effects = [
+    { kind = "message", text = "The notes are written in a cramped but legible hand, assembled from dozens of scouting expeditions into the dungeon beneath Briarhollow:\n\n  'The upper reaches are disorganised — remnants of old defences left leaderless after the Sundering.\n  Three main routes descend from the village: the well in the market square (sealed, but the bolts corrode),\n  the drainage tunnel in the alley (same), and the old keep entrance on the eastern hill (collapsed, but\n  the rubble shifts in wet weather).\n\n  The deeper you go, the older it gets. The stonework changes around the third descent — no longer\n  Briarhollow masonry but something older, pre-Sundering, built to last. Whatever is down there,\n  it was not built by human hands.'\n\n  The notes break off mid-sentence. The final line reads: 'If you are reading this, I did not return.'" },
+]
+
+[[rooms]]
+id = "newbie:armory"
+name = "The Warden's Armoury"
+description = """
+A vaulted stone room with iron-banded chests along one wall and peg boards hung with \
+leather armour, iron helms, and oiled sword belts along the other. Everything is tagged \
+with small parchment labels in a meticulous hand. The armoury smells of lanolin and \
+metal polish. A narrow door south leads back to the courtyard."""
+lore = """
+The parchment labels list the name of every adventurer who borrowed equipment from the \
+armoury and never returned it. The list is long — hundreds of names spanning three \
+centuries. Near the bottom, someone has written in red ink: 'The equipment is not the \
+point. Bring yourselves back.'"""
+hints = [
+    "Type 'examine labels' to read the armoury's records.",
+]
+
+[rooms.exits]
+south = "newbie:courtyard"
+
+[[rooms.triggers]]
+command = "examine labels"
+effects = [
+    { kind = "message", text = "Hundreds of names in a careful hand — every adventurer who borrowed gear and never came back to return it. The list spans centuries. Near the bottom, added in red ink: 'The equipment is not the point. Bring yourselves back.'" },
+]
+
+[[rooms]]
+id = "newbie:garden"
+name = "The Warden's Garden"
+description = """
+A walled garden with raised herb beds and a pair of ancient oak trees whose canopies \
+nearly touch overhead. Stone benches line the gravel path between the beds. At the \
+northern end of the garden, a moss-covered stone archway frames a view of the Briarhollow \
+rooftops in the distance. A carved inscription above the arch reads: 'The world does not \
+end at the gate.' The path east returns to the courtyard."""
+lore = """
+The garden has been tended by every Warden of Newcomers since the Academy's founding. \
+The herbs grown here are used in healing salves distributed to adventurers setting out \
+into the dungeon. The oak trees were saplings when the Academy was built — the Warden \
+who planted them left a note in the archives: 'I will not see them grow tall, but those \
+who come after me will rest in their shade.'"""
+hints = [
+    "The archway north leads to Briarhollow village.",
+    "Type 'pass through archway' to complete the tutorial before heading north.",
+]
+
+[rooms.exits]
+east = "newbie:courtyard"
+north = "starting_village:market_square"
+
+[[rooms.triggers]]
+command = "pass through archway"
+effects = [
+    { kind = "set_tutorial_complete" },
+    { kind = "message", text = "You step through the ancient archway. A warm light washes over you as the runes along the stone frame pulse once and fade. The Warden's voice, as if carried on the breeze: 'Go well.' The familiar weight of the tutorial guides lifts from your mind — you are ready for the wider world." },
+]
