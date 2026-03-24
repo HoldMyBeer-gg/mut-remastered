@@ -7,7 +7,7 @@ use tokio::{
 use tracing::{debug, warn};
 
 use protocol::auth::{ErrorCode, ServerMsg as AuthServerMsg};
-use protocol::codec::{decode_message, encode_message};
+use protocol::codec::{decode_message, encode_message, NS_AUTH, NS_WORLD};
 use protocol::world::ServerMsg as WorldServerMsg;
 
 use crate::auth::{
@@ -135,10 +135,10 @@ impl ConnectionActor {
     /// Both enum types use postcard — different variant indices make accidental
     /// cross-decoding extremely unlikely.
     async fn dispatch_frame(&mut self, bytes: &[u8]) -> anyhow::Result<()> {
-        if let Ok(msg) = decode_message::<protocol::auth::ClientMsg>(bytes) {
+        if let Ok(msg) = decode_message::<protocol::auth::ClientMsg>(NS_AUTH, bytes) {
             return self.handle_auth_message(msg).await;
         }
-        if let Ok(msg) = decode_message::<protocol::world::ClientMsg>(bytes) {
+        if let Ok(msg) = decode_message::<protocol::world::ClientMsg>(NS_WORLD, bytes) {
             return self.handle_world_message(msg).await;
         }
         // Neither decoded successfully
@@ -349,14 +349,14 @@ impl ConnectionActor {
 
     /// Encode and write an auth ServerMsg to the TCP stream.
     async fn send_auth(&mut self, msg: AuthServerMsg) -> anyhow::Result<()> {
-        let bytes = encode_message(&msg)?;
+        let bytes = encode_message(NS_AUTH, &msg)?;
         self.writer.write_all(&bytes).await?;
         Ok(())
     }
 
     /// Encode and write a world ServerMsg to the TCP stream.
     async fn send_world(&mut self, msg: WorldServerMsg) -> anyhow::Result<()> {
-        let bytes = encode_message(&msg)?;
+        let bytes = encode_message(NS_WORLD, &msg)?;
         self.writer.write_all(&bytes).await?;
         Ok(())
     }
@@ -375,14 +375,19 @@ impl ConnectionActor {
     }
 
     /// Ensure the player has a position in the world. If not, place them at the default spawn.
+    ///
+    /// The spawn room is determined by (in priority order):
+    /// 1. `world.default_spawn` — set at runtime by test helpers for custom spawn locations
+    /// 2. `DEFAULT_SPAWN_ROOM` constant — the production default
     async fn ensure_player_in_world(&self, account_id: &str) {
-        let needs_placement = {
+        let (needs_placement, spawn_override) = {
             let w = self.state.world.read().await;
-            !w.player_positions.contains_key(account_id)
+            (!w.player_positions.contains_key(account_id), w.default_spawn.clone())
         };
 
         if needs_placement {
-            let spawn = RoomId(DEFAULT_SPAWN_ROOM.to_string());
+            let spawn = spawn_override
+                .unwrap_or_else(|| RoomId(DEFAULT_SPAWN_ROOM.to_string()));
 
             // Insert into in-memory world
             {

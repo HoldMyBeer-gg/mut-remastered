@@ -88,5 +88,5 @@ pub async fn load_world(
         "overlaid persisted state from SQLite"
     );
 
-    Ok(World { rooms, room_states, player_positions })
+    Ok(World { rooms, room_states, player_positions, default_spawn: None })
 }

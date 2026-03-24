@@ -331,13 +331,17 @@ pub async fn handle_interact(
             if trigger.command.to_lowercase() != command_lower {
                 return false;
             }
-            // Check condition if present
+            // Check condition if present.
+            // When no room state exists (or the key is absent), treat the stored
+            // value as "false" — this is the conventional initial state for boolean
+            // trigger conditions (e.g., `lever_state = "false"` matches a lever
+            // that has never been pulled).
             if let Some(ref cond) = trigger.condition {
-                if let Some(state) = room_state {
-                    state.kv.get(&cond.key).map(|v| v.as_str()) == Some(cond.value.as_str())
-                } else {
-                    false
-                }
+                let current_value = room_state
+                    .and_then(|s| s.kv.get(&cond.key))
+                    .map(|v| v.as_str())
+                    .unwrap_or("false");
+                current_value == cond.value.as_str()
             } else {
                 true
             }

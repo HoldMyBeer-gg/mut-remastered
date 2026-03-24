@@ -137,6 +137,12 @@ pub struct World {
     pub room_states: HashMap<RoomId, RoomState>,
     /// Current room for each connected player (account_id -> room_id).
     pub player_positions: HashMap<String, RoomId>,
+    /// Override the default spawn room for new players.
+    ///
+    /// When `Some`, new players are placed here instead of the compiled-in
+    /// `DEFAULT_SPAWN_ROOM` constant. Used by test helpers to control spawn
+    /// location without recompiling.
+    pub default_spawn: Option<RoomId>,
 }
 
 /// Event broadcast to all players in a room via `tokio::sync::broadcast`.
