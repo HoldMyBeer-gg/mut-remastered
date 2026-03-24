@@ -1,11 +1,5 @@
-mod auth;
-mod config;
-mod db;
-mod net;
-mod session;
-
-use config::ServerConfig;
-use net::listener::{AppState, run_listener};
+use server::config::ServerConfig;
+use server::net::listener::{AppState, run_listener};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -22,7 +16,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(bind_addr = %config.bind_addr, "starting MUT Remastered server");
 
     // Initialize database
-    let db_pool = db::init_db(&config.database_url).await?;
+    let db_pool = server::db::init_db(&config.database_url).await?;
     tracing::info!("database ready");
 
     // Build shared application state
