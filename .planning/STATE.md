@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 01-server-foundation 01-02-PLAN.md
-last_updated: "2026-03-24T00:45:43.776Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 01-server-foundation 01-03-PLAN.md
+last_updated: "2026-03-24T00:49:37.401Z"
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -48,6 +48,7 @@ Plan: 3 of 3
 *Updated after each plan completion*
 | Phase 01-server-foundation P01 | 2 | 2 tasks | 13 files |
 | Phase 01-server-foundation P02 | 3 | 2 tasks | 9 files |
+| Phase 01-server-foundation P03 | 2min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ Recent decisions affecting current work:
 - [Phase 01-server-foundation]: 01-01: postcard replaces bincode (RUSTSEC-2025-0141); 4-byte LE length prefix for TCP framing; UUID session tokens over JWT for Phase 1 TCP sessions; WAL mode on SQLite pool
 - [Phase 01-server-foundation]: Argon2 spawn_blocking: Argon2id is CPU/memory-intensive; always call via spawn_blocking to avoid blocking Tokio async thread pool
 - [Phase 01-server-foundation]: delete_session in both Logout handler and cleanup(): AUTH-08 requires session invalidation on explicit logout AND on connection drop/crash
+- [Phase 01-server-foundation]: lib.rs + main.rs split for integration test access: Rust integration tests need pub mod re-exports in a lib target; main.rs uses server:: paths from lib.rs
+- [Phase 01-server-foundation]: In-memory SQLite per test: sqlite:file:testdb_UUID?mode=memory&cache=shared isolates each TestServer run without temp file cleanup
 
 ### Pending Todos
 
@@ -76,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T00:45:43.773Z
-Stopped at: Completed 01-server-foundation 01-02-PLAN.md
+Last session: 2026-03-24T00:49:37.399Z
+Stopped at: Completed 01-server-foundation 01-03-PLAN.md
 Resume file: None
