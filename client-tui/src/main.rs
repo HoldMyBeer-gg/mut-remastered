@@ -790,7 +790,12 @@ async fn handle_server_message(
                         state.log(format!("⚙ {}", text));
                     }
                     protocol::world::ServerMsg::WorldEvent { message } => {
-                        state.log(message);
+                        // Split multi-line messages (combat log sends \n-joined entries)
+                        for line in message.lines() {
+                            if !line.is_empty() {
+                                state.log(line.to_string());
+                            }
+                        }
                     }
                     protocol::world::ServerMsg::InventoryList {
                         items,
