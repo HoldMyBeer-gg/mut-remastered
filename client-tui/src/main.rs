@@ -395,45 +395,49 @@ async fn handle_game_input(
             let lower_cmd = cmd.to_lowercase();
             let first_word = lower_cmd.split_whitespace().next().unwrap_or("");
 
-            if first_word == "help" || first_word == "?" || first_word == "commands" {
+            if first_word == "/help" || first_word == "help" || first_word == "?" || first_word == "/?" {
                 state.log("".to_string());
                 state.log("═══ MUT Remastered — Commands ═══".to_string());
                 state.log("".to_string());
-                state.log("── Movement ──".to_string());
-                state.log("  n/s/e/w/u/d     Move in a direction (or north/south/east/west/up/down)".to_string());
-                state.log("  look (l)        Look around the room".to_string());
-                state.log("  examine <thing> Examine something in the room".to_string());
+                state.log("── Movement (no / needed) ──".to_string());
+                state.log("  n/s/e/w/u/d     Move in a direction".to_string());
+                state.log("  /look (/l)      Look around the room".to_string());
+                state.log("  /examine <thing> Examine something (/ex)".to_string());
                 state.log("".to_string());
                 state.log("── Combat ──".to_string());
-                state.log("  attack <target> Attack a monster".to_string());
-                state.log("  flee            Try to escape combat (50% chance)".to_string());
+                state.log("  /attack <target> Attack a monster (/a)".to_string());
+                state.log("  /flee            Try to escape combat".to_string());
+                state.log("  /blast           Mage: Arcane Blast (5 mana)".to_string());
+                state.log("  /heal            Cleric: Heal self (5 mana)".to_string());
+                state.log("  /strike          Warrior: Power Strike (5 stamina)".to_string());
+                state.log("  /aim             Ranger: Aimed Shot (3 stamina)".to_string());
+                state.log("  /sneak           Rogue: Sneak Attack (once/combat)".to_string());
+                state.log("  /use <ability>   Use any ability by name".to_string());
                 state.log("".to_string());
                 state.log("── Inventory ──".to_string());
-                state.log("  inv             Show your inventory".to_string());
-                state.log("  get <item>      Pick up an item from the floor".to_string());
-                state.log("  drop <item>     Drop an item".to_string());
-                state.log("  equip <item>    Equip an item".to_string());
-                state.log("  unequip <slot>  Unequip a slot (weapon, body, etc.)".to_string());
-                state.log("".to_string());
-                state.log("── Character ──".to_string());
-                state.log("  stats           View your character stats".to_string());
-                state.log("  bio <text>      Set your biography".to_string());
-                state.log("  desc <text>     Set your visible description".to_string());
+                state.log("  /inv             Show inventory (/i)".to_string());
+                state.log("  /get <item>      Pick up item".to_string());
+                state.log("  /drop <item>     Drop item".to_string());
+                state.log("  /equip <item>    Equip item".to_string());
+                state.log("  /unequip <slot>  Unequip slot".to_string());
                 state.log("".to_string());
                 state.log("── Social ──".to_string());
-                state.log("  say <text>      Talk to players in the room (IC)".to_string());
-                state.log("  emote <text>    Perform an emote (IC)".to_string());
-                state.log("  gossip <text>   Global chat (OOC)".to_string());
-                state.log("  whisper <who> <text>  Private message".to_string());
-                state.log("  lookat <player> Inspect another player".to_string());
-                state.log("  toggle <channel> Toggle a chat channel on/off".to_string());
+                state.log("  /say <text>      Room chat (IC)".to_string());
+                state.log("  /gossip <text>   Global chat (OOC) (/g)".to_string());
+                state.log("  /whisper <who> <text>  Private message (/w)".to_string());
+                state.log("  /emote <text>    Emote (/me)".to_string());
+                state.log("  /lookat <player> Inspect player".to_string());
                 state.log("".to_string());
-                state.log("── Other ──".to_string());
-                state.log("  help            Show this help".to_string());
-                state.log("  quit            Log out and exit".to_string());
+                state.log("── Info ──".to_string());
+                state.log("  /stats           Character stats (or Tab key)".to_string());
+                state.log("  /bio <text>      Set biography".to_string());
+                state.log("  /desc <text>     Set description".to_string());
+                state.log("  /quit            Log out".to_string());
                 state.log("".to_string());
-                state.log("💡 Tip: Head south to the Shadowed Alley to fight Giant Rats!".to_string());
-                state.log("═══════════════════════════════════".to_string());
+                state.log("── Interact (no / needed) ──".to_string());
+                state.log("  pull lever       Interact with objects in rooms".to_string());
+                state.log("  examine fountain Try interacting with things!".to_string());
+                state.log("═════════════════════════════════════".to_string());
                 return;
             }
 
@@ -482,143 +486,96 @@ async fn handle_game_input(
             state.log_scroll = state.log_scroll.saturating_sub(5);
         }
         KeyCode::F(1) => {
-            // F1 = Help (same as typing "help")
             state.log("".to_string());
-            state.log("═══ MUT Remastered — Commands ═══".to_string());
-            state.log("".to_string());
-            state.log("── Movement: n s e w u d | look | examine <thing>".to_string());
-            state.log("── Combat:   attack <target> | flee".to_string());
-            state.log("── Items:    inv | get <item> | drop <item> | equip <item> | unequip <slot>".to_string());
-            state.log("── Social:   say <text> | gossip <text> | emote <text> | whisper <who> <text>".to_string());
-            state.log("── Info:     stats | bio <text> | desc <text> | lookat <player>".to_string());
-            state.log("── Other:    help | toggle <channel> | quit".to_string());
-            state.log("═════════════════════════════════════".to_string());
+            state.log("═══ Quick Help (F1) ═══".to_string());
+            state.log("  n/s/e/w = move │ /look │ /attack <mob> │ /flee".to_string());
+            state.log("  /blast /heal /strike /aim /sneak = class abilities".to_string());
+            state.log("  /inv │ /get │ /drop │ /equip │ /stats │ /say │ /gossip".to_string());
+            state.log("  Type /help for full command list".to_string());
+            state.log("═══════════════════════".to_string());
         }
         KeyCode::Tab => {
-            // Tab = quick Stats
-            parse_and_send_command("stats", tx).await;
+            parse_and_send_command("/stats", tx).await;
         }
         _ => {}
     }
 }
 
 /// Parse a text command and send the appropriate protocol message.
+/// Commands use / prefix (e.g., /look, /attack rat). Movement shortcuts (n/s/e/w/u/d) work without /.
 async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
-    let lower = cmd.to_lowercase();
     let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
     let verb = parts[0].to_lowercase();
     let arg = parts.get(1).map(|s| s.to_string()).unwrap_or_default();
 
     match verb.as_str() {
-        // Movement
+        // Movement — no / needed
         "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "u" | "up" | "d"
         | "down" => {
-            send_msg(
-                tx,
-                NS_WORLD,
-                &protocol::world::ClientMsg::Move {
-                    direction: verb.clone(),
-                },
-            )
-            .await;
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Move { direction: verb.clone() }).await;
         }
-        "look" | "l" => {
+        // All other commands use / prefix
+        "/look" | "/l" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Look).await;
         }
-        "examine" | "exam" => {
-            send_msg(
-                tx,
-                NS_WORLD,
-                &protocol::world::ClientMsg::Examine { target: arg },
-            )
-            .await;
+        "/examine" | "/exam" | "/ex" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Examine { target: arg }).await;
         }
-        "attack" | "kill" | "hit" => {
-            send_msg(
-                tx,
-                NS_COMBAT,
-                &protocol::combat::ClientMsg::Attack { target: arg },
-            )
-            .await;
+        "/attack" | "/kill" | "/hit" | "/a" => {
+            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::Attack { target: arg }).await;
         }
-        "flee" | "run" => {
+        "/flee" | "/run" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::Flee).await;
         }
-        "use" | "cast" | "ability" => {
+        "/use" | "/cast" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: arg }).await;
         }
-        // Direct ability shortcuts
-        "blast" | "arcane_blast" => {
+        "/blast" | "/arcane_blast" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "blast".to_string() }).await;
         }
-        "heal" => {
+        "/heal" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "heal".to_string() }).await;
         }
-        "strike" | "power_strike" => {
+        "/strike" | "/power_strike" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "strike".to_string() }).await;
         }
-        "aim" | "aimed_shot" => {
+        "/aim" | "/aimed_shot" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "aim".to_string() }).await;
         }
-        "sneak" | "sneak_attack" => {
+        "/sneak" | "/sneak_attack" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "sneak".to_string() }).await;
         }
-        "inventory" | "inv" | "i" => {
+        "/inv" | "/inventory" | "/i" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Inventory).await;
         }
-        "get" | "take" | "pickup" => {
-            send_msg(
-                tx,
-                NS_WORLD,
-                &protocol::world::ClientMsg::GetItem { target: arg },
-            )
-            .await;
+        "/get" | "/take" | "/pickup" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::GetItem { target: arg }).await;
         }
-        "drop" => {
-            send_msg(
-                tx,
-                NS_WORLD,
-                &protocol::world::ClientMsg::DropItem { target: arg },
-            )
-            .await;
+        "/drop" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::DropItem { target: arg }).await;
         }
-        "equip" | "wear" | "wield" => {
-            send_msg(
-                tx,
-                NS_WORLD,
-                &protocol::world::ClientMsg::Equip { item_name: arg },
-            )
-            .await;
+        "/equip" | "/wear" | "/wield" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Equip { item_name: arg }).await;
         }
-        "unequip" | "remove" => {
-            send_msg(
-                tx,
-                NS_WORLD,
-                &protocol::world::ClientMsg::Unequip { slot: arg },
-            )
-            .await;
+        "/unequip" | "/remove" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Unequip { slot: arg }).await;
         }
-        "stats" | "score" | "sc" => {
+        "/stats" | "/score" | "/sc" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Stats).await;
         }
-        "bio" => {
-            send_msg(
-                tx,
-                NS_WORLD,
-                &protocol::world::ClientMsg::Bio { text: arg },
-            )
-            .await;
+        "/bio" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Bio { text: arg }).await;
         }
-        "quit" | "exit" => {
+        "/quit" | "/exit" => {
             send_msg(tx, NS_AUTH, &protocol::auth::ClientMsg::Logout).await;
         }
-        "say" => {
+        "/say" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Say { text: arg }).await;
         }
-        "emote" | "em" | "me" => {
+        "/emote" | "/em" | "/me" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Emote { text: arg }).await;
         }
-        "whisper" | "tell" => {
+        "/whisper" | "/tell" | "/w" => {
             let wparts: Vec<&str> = arg.splitn(2, ' ').collect();
             if wparts.len() == 2 {
                 send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Whisper {
@@ -627,20 +584,20 @@ async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
                 }).await;
             }
         }
-        "gossip" | "ooc" => {
+        "/gossip" | "/ooc" | "/g" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Gossip { text: arg }).await;
         }
-        "toggle" => {
+        "/toggle" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::ToggleChannel { channel: arg }).await;
         }
-        "lookat" | "inspect" => {
+        "/lookat" | "/inspect" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::LookAt { target: arg }).await;
         }
-        "describe" | "desc" => {
+        "/describe" | "/desc" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::SetDescription { text: arg }).await;
         }
         _ => {
-            // Try as interact command
+            // Try as interact command (freeform, no / needed)
             send_msg(
                 tx,
                 NS_WORLD,
@@ -772,8 +729,8 @@ async fn handle_server_message(
                         }
                         if first_room {
                             state.log("".to_string());
-                            state.log("⚔ Welcome to MUT Remastered v0.2! Type HELP for commands.".to_string());
-                            state.log("💡 Try: LOOK, then move with N/S/E/W, ATTACK <monster> to fight.".to_string());
+                            state.log("⚔ Welcome to MUT Remastered v0.3! Type /help for commands.".to_string());
+                            state.log("💡 Move: n/s/e/w │ Fight: /attack <mob> │ Ability: /blast /heal /strike".to_string());
                             state.log("".to_string());
                         }
                     }
