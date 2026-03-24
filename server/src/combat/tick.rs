@@ -130,6 +130,20 @@ pub async fn combat_tick_loop(
                         &db,
                     )
                     .await;
+
+                    // Broadcast respawn notification to room (bind point)
+                    let bind_room = {
+                        let w = world.read().await;
+                        w.player_positions.get(&death.character_id).cloned()
+                    };
+                    if let Some(bind_room) = bind_room {
+                        let channels = room_channels.read().await;
+                        if let Some(sender) = channels.get(&bind_room) {
+                            let _ = sender.send(WorldEvent {
+                                message: format!("{} appears in a flash of light, gasping.", death.character_name),
+                            });
+                        }
+                    }
                 }
 
                 // Broadcast combat end
@@ -255,15 +269,8 @@ async fn handle_player_death(
         warn!(error = %e, "failed to persist death respawn position");
     }
 
-    // Broadcast death to old room
-    {
-        let channels = room_channels.read().await;
-        if let Some(sender) = channels.get(&old_room_id) {
-            let _ = sender.send(WorldEvent {
-                message: format!("{} has been slain!", character_name),
-            });
-        }
-    }
+    // Note: death message already included in combat log entries (manager.rs)
+    // No separate broadcast needed here to avoid duplicate.
 
     debug!(%character_id, %character_name, bind_point = %bind_point, "player died and respawned");
 }
