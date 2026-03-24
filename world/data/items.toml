@@ -1,0 +1,92 @@
+# Item templates for MUT Remastered
+# Each item defines its type, slot, stats, and description.
+
+# ── Weapons ───────────────────────────────────────────────────────
+
+[[items]]
+id = "rusty_shortsword"
+name = "Rusty Shortsword"
+kind = "weapon"
+slot = "weapon"
+damage_dice = 1
+damage_sides = 6
+damage_bonus = 0
+ability = "str"
+description = "A pitted blade that's seen better days."
+
+[[items]]
+id = "simple_dagger"
+name = "Simple Dagger"
+kind = "weapon"
+slot = "weapon"
+damage_dice = 1
+damage_sides = 4
+damage_bonus = 0
+ability = "dex"
+description = "A plain steel dagger, sharp enough to cut bread or throats."
+
+[[items]]
+id = "wooden_staff"
+name = "Wooden Staff"
+kind = "weapon"
+slot = "weapon"
+damage_dice = 1
+damage_sides = 6
+damage_bonus = 0
+ability = "str"
+description = "A sturdy oak staff, good for walking and whacking."
+
+# ── Armor ─────────────────────────────────────────────────────────
+
+[[items]]
+id = "leather_armor"
+name = "Leather Armor"
+kind = "armor"
+slot = "body"
+ac_bonus = 2
+description = "Supple leather reinforced with studs."
+
+[[items]]
+id = "old_shield"
+name = "Old Shield"
+kind = "armor"
+slot = "offhand"
+ac_bonus = 1
+description = "A dented wooden shield. Still stops a blade."
+
+# ── Accessories ───────────────────────────────────────────────────
+
+[[items]]
+id = "iron_ring"
+name = "Iron Ring of Fortitude"
+kind = "accessory"
+slot = "ring"
+stat_bonus_ability = "con"
+stat_bonus_value = 1
+description = "A plain iron band that thrums with faint warmth."
+
+# ── Junk / Crafting ──────────────────────────────────────────────
+
+[[items]]
+id = "rat_tail"
+name = "Rat Tail"
+kind = "junk"
+description = "A coarse grey tail. Some alchemist might want this."
+
+[[items]]
+id = "leather_scraps"
+name = "Leather Scraps"
+kind = "junk"
+description = "Torn scraps of tanned hide. Could be useful."
+
+[[items]]
+id = "spider_silk"
+name = "Spider Silk"
+kind = "junk"
+description = "A coil of shimmering silk, surprisingly strong."
+
+[[items]]
+id = "bone_shard"
+name = "Bone Shard"
+kind = "junk"
+description = "A jagged fragment of ancient bone, cold to the touch."

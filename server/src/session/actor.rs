@@ -367,6 +367,94 @@ impl ConnectionActor {
                     self.tutorial_complete = true;
                 }
             }
+
+            protocol::world::ClientMsg::Inventory => {
+                let resp = crate::inventory::commands::handle_inventory(
+                    &self.state.db,
+                    &character_id,
+                    &self.state.item_templates,
+                )
+                .await;
+                self.send_world(resp).await?;
+            }
+
+            protocol::world::ClientMsg::GetItem { target } => {
+                let room_id_str = {
+                    let w = self.state.world.read().await;
+                    w.player_positions.get(&character_id).map(|r| r.0.clone())
+                };
+                if let Some(room_id) = room_id_str {
+                    let resp = crate::inventory::commands::handle_get_item(
+                        &self.state.db,
+                        &character_id,
+                        &room_id,
+                        &target,
+                        &self.state.item_templates,
+                    )
+                    .await;
+                    self.send_world(resp).await?;
+                }
+            }
+
+            protocol::world::ClientMsg::DropItem { target } => {
+                let room_id_str = {
+                    let w = self.state.world.read().await;
+                    w.player_positions.get(&character_id).map(|r| r.0.clone())
+                };
+                if let Some(room_id) = room_id_str {
+                    let resp = crate::inventory::commands::handle_drop_item(
+                        &self.state.db,
+                        &character_id,
+                        &room_id,
+                        &target,
+                        &self.state.item_templates,
+                    )
+                    .await;
+                    self.send_world(resp).await?;
+                }
+            }
+
+            protocol::world::ClientMsg::Equip { item_name } => {
+                let resp = crate::inventory::commands::handle_equip(
+                    &self.state.db,
+                    &character_id,
+                    &item_name,
+                    &self.state.item_templates,
+                )
+                .await;
+                self.send_world(resp).await?;
+            }
+
+            protocol::world::ClientMsg::Unequip { slot } => {
+                let resp = crate::inventory::commands::handle_unequip(
+                    &self.state.db,
+                    &character_id,
+                    &slot,
+                    &self.state.item_templates,
+                )
+                .await;
+                self.send_world(resp).await?;
+            }
+
+            protocol::world::ClientMsg::Stats => {
+                let resp = crate::inventory::commands::handle_stats(
+                    &self.state.db,
+                    &character_id,
+                    &self.state.item_templates,
+                )
+                .await;
+                self.send_world(resp).await?;
+            }
+
+            protocol::world::ClientMsg::Bio { text } => {
+                let resp = crate::inventory::commands::handle_bio(
+                    &self.state.db,
+                    &character_id,
+                    &text,
+                )
+                .await;
+                self.send_world(resp).await?;
+            }
         }
         Ok(())
     }

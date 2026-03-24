@@ -110,6 +110,7 @@ impl TestServer {
             monster_templates: Arc::new(std::collections::HashMap::new()),
             active_monsters: Arc::new(RwLock::new(std::collections::HashMap::new())),
             respawn_timers: Arc::new(RwLock::new(Vec::new())),
+            item_templates: Arc::new(std::collections::HashMap::new()),
         };
 
         // Bind to port 0 to get an OS-assigned free port

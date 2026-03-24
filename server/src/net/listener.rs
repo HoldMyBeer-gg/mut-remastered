@@ -30,6 +30,8 @@ pub struct AppState {
     pub active_monsters: Arc<RwLock<HashMap<RoomId, Vec<ActiveMonster>>>>,
     /// Respawn timers for dead monsters.
     pub respawn_timers: Arc<RwLock<Vec<RespawnTimer>>>,
+    /// Item templates loaded from TOML (immutable after startup).
+    pub item_templates: Arc<HashMap<String, crate::inventory::types::ItemTemplate>>,
 }
 
 /// Accept loop: binds TCP listener and spawns one independent task per connection.

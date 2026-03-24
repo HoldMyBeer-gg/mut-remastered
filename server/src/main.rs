@@ -60,6 +60,17 @@ async fn main() -> anyhow::Result<()> {
         HashMap::new()
     };
 
+    // Load item templates
+    let items_path = data_dir.join("items.toml");
+    let item_templates = if items_path.exists() {
+        let templates = server::inventory::types::load_item_templates(&items_path)?;
+        tracing::info!(templates = templates.len(), "item templates loaded");
+        templates
+    } else {
+        tracing::warn!("no items.toml found at {:?}", items_path);
+        HashMap::new()
+    };
+
     // Spawn initial monsters
     let active_monsters = spawn_initial_monsters(&spawn_tables, &monster_templates);
     let total_monsters: usize = active_monsters.values().map(|v| v.len()).sum();
@@ -71,6 +82,7 @@ async fn main() -> anyhow::Result<()> {
     let monster_templates = Arc::new(monster_templates);
     let active_monsters = Arc::new(RwLock::new(active_monsters));
     let respawn_timers = Arc::new(RwLock::new(Vec::new()));
+    let item_templates = Arc::new(item_templates);
 
     // Spawn combat tick loop (runs every 2 seconds in background)
     tokio::spawn(combat_tick_loop(
@@ -93,6 +105,7 @@ async fn main() -> anyhow::Result<()> {
         monster_templates,
         active_monsters,
         respawn_timers,
+        item_templates,
     };
 
     // Start TCP accept loop — blocks until server shuts down
