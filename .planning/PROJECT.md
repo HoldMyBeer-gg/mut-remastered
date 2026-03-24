@@ -17,6 +17,12 @@ Players can explore a shared persistent dungeon world together through a beautif
 - [x] Session-based authentication with login/logout — Validated in Phase 01: Server Foundation (AUTH-02, AUTH-08)
 - [x] Concurrent TCP connections without blocking — Validated in Phase 01: Server Foundation (NETW-01, 10 concurrent connections tested)
 - [x] Shared protocol crate with compile-time type safety — Validated in Phase 01: Server Foundation (NETW-04)
+- [x] Rooms with rich text descriptions and visible exits — Validated in Phase 02: World and Movement (WRLD-01)
+- [x] Cardinal direction movement between rooms — Validated in Phase 02: World and Movement (WRLD-02)
+- [x] World state persists across server restarts — Validated in Phase 02: World and Movement (WRLD-03, player positions + world state in SQLite)
+- [x] Newbie tutorial area with guided prompts — Validated in Phase 02: World and Movement (WRLD-04, 7-room Warden's Academy)
+- [x] Embedded lore rewarding exploration — Validated in Phase 02: World and Movement (WRLD-05)
+- [x] Persistent world-state consequences from player actions — Validated in Phase 02: World and Movement (WRLD-06, data-driven trigger system)
 
 ### Active
 
@@ -67,7 +73,7 @@ Players can explore a shared persistent dungeon world together through a beautif
 | Rust for server + native client | Performance, safety, Ratatui ecosystem | Validated (Phase 01) |
 | Rich Unicode TUI over GPU 3D | Terminal compatibility (iTerm2/xterm) | — Pending |
 | Dual client (native + web) | Player choice, accessibility | — Pending |
-| Persistent world over sessions | Social/exploration focus needs continuity | — Pending |
+| Persistent world over sessions | Social/exploration focus needs continuity | Validated (Phase 02) |
 | Procedural + hand-crafted dungeons | Replayability with quality set pieces | — Pending |
 | D&D-flavored over strict SRD | Fun and accessibility over simulation accuracy | — Pending |
 
@@ -89,4 +95,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-24 after Phase 01 completion — server foundation verified with 8 passing integration tests*
+*Last updated: 2026-03-24 after Phase 02 completion — world and movement verified with 19 passing tests (8 auth + 11 world)*
