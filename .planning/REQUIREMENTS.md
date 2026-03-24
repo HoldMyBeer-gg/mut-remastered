@@ -9,7 +9,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: User can create an account with username and hashed password
+- [x] **AUTH-01**: User can create an account with username and hashed password
 - [ ] **AUTH-02**: User can log in and receive a persistent session
 - [ ] **AUTH-03**: User can create multiple characters per account
 - [ ] **AUTH-04**: User can select character race from available races
@@ -72,7 +72,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **NETW-01**: Game server handles multiple concurrent player connections via TCP
 - [ ] **NETW-02**: Game server handles WebSocket connections for browser clients
 - [ ] **NETW-03**: Browser-based TUI client via xterm.js has feature parity with native client
-- [ ] **NETW-04**: Shared protocol crate ensures message consistency between native and web clients
+- [x] **NETW-04**: Shared protocol crate ensures message consistency between native and web clients
 
 ## v2 Requirements
 
@@ -125,11 +125,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-08 | Phase 1 | Pending |
 | NETW-01 | Phase 1 | Pending |
-| NETW-04 | Phase 1 | Pending |
+| NETW-04 | Phase 1 | Complete |
 | WRLD-01 | Phase 2 | Pending |
 | WRLD-02 | Phase 2 | Pending |
 | WRLD-03 | Phase 2 | Pending |

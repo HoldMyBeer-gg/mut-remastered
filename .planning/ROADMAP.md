@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Native and web clients share a single compiled protocol crate — a message type change in the server produces a compile error in both clients
 **Plans:** 3 plans
 Plans:
-- [ ] 01-01-PLAN.md — Cargo workspace scaffold, protocol crate with message types and codec, SQLite schema and server entry point
+- [x] 01-01-PLAN.md — Cargo workspace scaffold, protocol crate with message types and codec, SQLite schema and server entry point
 - [ ] 01-02-PLAN.md — Auth module (Argon2id hashing, session management), TCP listener, and connection actor
 - [ ] 01-03-PLAN.md — Integration tests validating all Phase 1 requirements end-to-end
 

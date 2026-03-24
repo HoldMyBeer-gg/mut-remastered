@@ -1,3 +1,17 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: Ready to execute
+stopped_at: Completed 01-server-foundation 01-01-PLAN.md
+last_updated: "2026-03-24T00:40:48.751Z"
+progress:
+  total_phases: 7
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+---
+
 # Project State
 
 ## Project Reference
@@ -5,20 +19,17 @@
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Players can explore a shared persistent dungeon world together through a beautiful terminal interface — social interaction and exploration come first, combat second.
-**Current focus:** Phase 1 — Server Foundation
+**Current focus:** Phase 01 — server-foundation
 
 ## Current Position
 
-Phase: 1 of 7 (Server Foundation)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-23 — Roadmap created, 7 phases derived from 33 v1 requirements
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 01 (server-foundation) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: -
 - Total execution time: 0 hours
@@ -30,10 +41,12 @@ Progress: [░░░░░░░░░░] 0%
 | - | - | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: none yet
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-server-foundation P01 | 2 | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -46,6 +59,7 @@ Recent decisions affecting current work:
 - [Init]: Shared protocol crate (NETW-04) placed in Phase 1 — all downstream phases compile against it
 - [Init]: Web armory (ARMR-01-03) deferred to v2 — character schema must stabilize before SvelteKit/Threlte stack is introduced
 - [Init]: Phase 6 (Browser Client) depends on Phase 5 (Chat) being stable — xterm.js renders server ANSI output directly
+- [Phase 01-server-foundation]: 01-01: postcard replaces bincode (RUSTSEC-2025-0141); 4-byte LE length prefix for TCP framing; UUID session tokens over JWT for Phase 1 TCP sessions; WAL mode on SQLite pool
 
 ### Pending Todos
 
@@ -59,6 +73,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23
-Stopped at: Roadmap created — 7 phases, 33/33 requirements mapped. Ready to plan Phase 1.
+Last session: 2026-03-24T00:40:48.749Z
+Stopped at: Completed 01-server-foundation 01-01-PLAN.md
 Resume file: None
