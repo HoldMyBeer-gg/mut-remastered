@@ -20,12 +20,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### World
 
-- [ ] **WRLD-01**: Rooms have rich text descriptions and visible exits
-- [ ] **WRLD-02**: User can move between rooms using cardinal directions (n/s/e/w/u/d) and aliases
-- [ ] **WRLD-03**: World state persists across server restarts and player disconnects
-- [ ] **WRLD-04**: A newbie/tutorial area guides first-time players through commands in a safe zone
-- [ ] **WRLD-05**: Rooms contain embedded lore that rewards exploration
-- [ ] **WRLD-06**: Player actions have persistent consequences that affect the world state (RPG-style reactivity)
+- [x] **WRLD-01**: Rooms have rich text descriptions and visible exits
+- [x] **WRLD-02**: User can move between rooms using cardinal directions (n/s/e/w/u/d) and aliases
+- [x] **WRLD-03**: World state persists across server restarts and player disconnects
+- [x] **WRLD-04**: A newbie/tutorial area guides first-time players through commands in a safe zone
+- [x] **WRLD-05**: Rooms contain embedded lore that rewards exploration
+- [x] **WRLD-06**: Player actions have persistent consequences that affect the world state (RPG-style reactivity)
 
 ### Combat
 
@@ -130,12 +130,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-08 | Phase 1 | Complete |
 | NETW-01 | Phase 1 | Complete |
 | NETW-04 | Phase 1 | Complete |
-| WRLD-01 | Phase 2 | Pending |
-| WRLD-02 | Phase 2 | Pending |
-| WRLD-03 | Phase 2 | Pending |
-| WRLD-04 | Phase 2 | Pending |
-| WRLD-05 | Phase 2 | Pending |
-| WRLD-06 | Phase 2 | Pending |
+| WRLD-01 | Phase 2 | Complete |
+| WRLD-02 | Phase 2 | Complete |
+| WRLD-03 | Phase 2 | Complete |
+| WRLD-04 | Phase 2 | Complete |
+| WRLD-05 | Phase 2 | Complete |
+| WRLD-06 | Phase 2 | Complete |
 | AUTH-03 | Phase 3 | Pending |
 | AUTH-04 | Phase 3 | Pending |
 | AUTH-05 | Phase 3 | Pending |

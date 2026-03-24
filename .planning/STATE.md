@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-24T01:30:23.321Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-24T01:36:55.793Z"
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 02 (world-and-movement) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Plan: 2 of 3
 | Phase 01-server-foundation P02 | 3 | 2 tasks | 9 files |
 | Phase 01-server-foundation P03 | 2min | 2 tasks | 6 files |
 | Phase 02-world-and-movement P01 | 2 | 2 tasks | 10 files |
+| Phase 02 P02 | 4min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 02-world-and-movement]: Loader fully implemented in Task 1 upfront (not stubbed): mod.rs references loader so it must compile cleanly; full implementation avoids two-step approach
 - [Phase 02-world-and-movement]: TriggerEffect uses serde tag=kind + rename_all=snake_case to match TOML inline-table syntax {kind=set_state, ...}
 - [Phase 02-world-and-movement]: Room IDs are zone-prefixed strings (zone_id:room_slug); ZoneFile struct is private to loader — only World is exposed
+- [Phase 02]: Free function read_frame_from resolves E0500 borrow conflict in tokio::select! — actor fields reader and room_receiver can be borrowed independently
+- [Phase 02]: Dispatch-try approach (auth first, then world) over unified ClientMessage wrapper: avoids breaking auth integration tests; postcard variant indices prevent cross-decode false positives
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T01:30:23.319Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-03-24T01:36:55.791Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
