@@ -599,6 +599,9 @@ async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
         "/describe" | "/desc" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::SetDescription { text: arg }).await;
         }
+        "/descend" | "/enter" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Interact { command: "enter dungeon".to_string() }).await;
+        }
         _ => {
             // Try as interact command (freeform, no / needed)
             send_msg(

@@ -43,7 +43,7 @@ hints = [
 
 [rooms.exits]
 south = "starting_village:market_square"
-north = "starting_village:north_road"
+north = "starting_village:dungeon_entrance"
 
 [[rooms.triggers]]
 command = "examine map"
@@ -109,7 +109,7 @@ been spotted along this stretch."""
 lore = "Wagon ruts and old bloodstains suggest this road was once a busy trade route — before the goblins came."
 
 [rooms.exits]
-south = "starting_village:tavern"
+south = "starting_village:dungeon_entrance"
 
 [[rooms.spawns]]
 monster = "goblin_scout"
@@ -139,3 +139,21 @@ command = "look down well"
 effects = [
     { kind = "message", text = "You peer into the darkness. Something skitters below — multiple legs, gleaming eyes. You pull back quickly." },
 ]
+
+[[rooms]]
+id = "starting_village:dungeon_entrance"
+name = "The Dungeon Entrance"
+description = """
+A heavy iron grate has been pried open, revealing a narrow stone staircase spiraling \
+downward into darkness. The air rising from below is cold and stale, carrying the faint \
+scent of damp stone and something older. Scratched into the wall beside the entrance: \
+'ABANDON HOPE'. The tavern is back to the south."""
+lore = "This is the sealed entrance the tavern map showed. Someone — or something — has broken through."
+hints = [
+    "Type 'enter dungeon' to descend into a procedurally generated dungeon!",
+    "Each dungeon is unique — rooms, monsters, and loot change every time.",
+]
+
+[rooms.exits]
+south = "starting_village:tavern"
+north = "starting_village:north_road"

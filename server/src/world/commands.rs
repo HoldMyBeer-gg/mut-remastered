@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use rand::Rng;
 use sqlx::SqlitePool;
 use tokio::sync::{RwLock, broadcast};
 use tracing::warn;
@@ -308,6 +309,19 @@ pub async fn handle_interact(
 ) -> (Vec<ServerMsg>, bool) {
     let command_lower = command.to_lowercase();
 
+    // Special: "enter dungeon" at the dungeon entrance generates a procedural dungeon
+    if command_lower == "enter dungeon" || command_lower == "descend" || command_lower == "go down" {
+        let current_room = {
+            let w = world.read().await;
+            w.player_positions.get(account_id).cloned()
+        };
+        if let Some(room_id) = current_room {
+            if room_id.0.contains("dungeon_entrance") {
+                return generate_and_enter_dungeon(world, room_channels, db, account_id, &room_id).await;
+            }
+        }
+    }
+
     // Collect data needed under write lock
     let (room_id, matching_trigger) = {
         let w = world.read().await;
@@ -500,4 +514,111 @@ async fn display_name(world: &Arc<RwLock<World>>, character_id: &str) -> String 
         .get(character_id)
         .cloned()
         .unwrap_or_else(|| character_id.to_string())
+}
+
+/// Generate a procedural dungeon and teleport the player into it.
+async fn generate_and_enter_dungeon(
+    world: &Arc<RwLock<World>>,
+    room_channels: &Arc<RwLock<HashMap<RoomId, broadcast::Sender<WorldEvent>>>>,
+    db: &SqlitePool,
+    character_id: &str,
+    entrance_room_id: &RoomId,
+) -> (Vec<ServerMsg>, bool) {
+    use crate::dungeon::generator::*;
+
+    // Pick a random theme
+    let themes = [DungeonTheme::Crypt, DungeonTheme::Cave, DungeonTheme::Ruins, DungeonTheme::Sewer];
+    let theme = themes[rand::rng().random_range(0..themes.len())].clone();
+    let theme_name = match &theme {
+        DungeonTheme::Crypt => "Ancient Crypt",
+        DungeonTheme::Cave => "Deep Caverns",
+        DungeonTheme::Ruins => "Forgotten Ruins",
+        DungeonTheme::Sewer => "Dark Sewers",
+    };
+
+    let dungeon_id = format!("dungeon_{}", uuid::Uuid::new_v4().simple().to_string().get(..8).unwrap_or("rand"));
+
+    let config = DungeonConfig {
+        room_count: rand::rng().random_range(8..15),
+        theme,
+        boss_room: Some("boss".to_string()),
+        zone_id: dungeon_id.clone(),
+        zone_name: theme_name.to_string(),
+    };
+
+    let dungeon = generate_dungeon(&config);
+
+    // Verify connectivity
+    if !verify_connectivity(&dungeon) {
+        return (vec![ServerMsg::InteractResult {
+            text: "The dungeon entrance collapses! (generation error — try again)".to_string(),
+        }], false);
+    }
+
+    let first_room_id = dungeon.rooms[0].id.clone();
+
+    // Add dungeon rooms to the world
+    {
+        let mut w = world.write().await;
+        for room in &dungeon.rooms {
+            let room_id = RoomId(room.id.clone());
+            w.rooms.insert(room_id.clone(), room.clone());
+        }
+        // Add exit from dungeon entrance to first dungeon room
+        if let Some(entrance_def) = w.rooms.get_mut(entrance_room_id) {
+            entrance_def.exits.insert("down".to_string(), first_room_id.clone());
+        }
+
+        // Move player to first dungeon room
+        w.player_positions.insert(character_id.to_string(), RoomId(first_room_id.clone()));
+    }
+
+    // Create broadcast channels for new rooms
+    {
+        let mut channels = room_channels.write().await;
+        for room in &dungeon.rooms {
+            let room_id = RoomId(room.id.clone());
+            if !channels.contains_key(&room_id) {
+                let (tx, _rx) = tokio::sync::broadcast::channel(32);
+                channels.insert(room_id, tx);
+            }
+        }
+    }
+
+    // Persist position
+    if let Err(e) = sqlx::query(
+        "INSERT OR REPLACE INTO character_positions (character_id, room_id, updated_at) VALUES (?, ?, unixepoch())"
+    )
+    .bind(character_id)
+    .bind(&first_room_id)
+    .execute(db)
+    .await
+    {
+        warn!(error = %e, "failed to persist dungeon entry position");
+    }
+
+    // Build the room description for the first dungeon room
+    let room_def = &dungeon.rooms[0];
+    let exits: Vec<String> = room_def.exits.keys().cloned().collect();
+    let hints = room_def.hints.clone().unwrap_or_default();
+
+    let mut responses = vec![
+        ServerMsg::InteractResult {
+            text: format!(
+                "You descend the spiral staircase into {}... The entrance seals behind you with a grinding of stone.",
+                theme_name
+            ),
+        },
+        ServerMsg::RoomDescription {
+            room_id: first_room_id,
+            name: room_def.name.clone(),
+            description: room_def.description.clone(),
+            exits,
+            hints,
+            players_here: vec![],
+            monsters_here: vec![],
+        },
+    ];
+
+    (responses, false)
 }
