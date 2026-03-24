@@ -14,7 +14,8 @@ axum = { version = "0.8", features = ["ws"] }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-native-tls", "macros", "migrate"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower-http = { version = "0.6", features = ["cors", "compression-gzip"] }
-argon2 = "0.5"
+argon2 = { version = "0.5", features = ["rand"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde_json = "1"
