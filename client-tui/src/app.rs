@@ -109,6 +109,8 @@ pub struct GameState {
     pub last_move_direction: Option<String>,
     /// Scroll offset for game log (0 = bottom).
     pub log_scroll: u16,
+    /// Frame counter for animations.
+    pub frame: u64,
 }
 
 pub struct ExploredRoom {
@@ -142,6 +144,7 @@ impl GameState {
             room_connections: HashMap::new(),
             last_move_direction: None,
             log_scroll: 0,
+            frame: 0,
         }
     }
 

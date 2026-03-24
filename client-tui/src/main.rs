@@ -6,6 +6,7 @@
 mod app;
 mod dungeon_view;
 mod map;
+mod mesh3d;
 mod net;
 mod raycast;
 mod ui;
@@ -113,6 +114,11 @@ async fn run_app(
     screen = AppScreen::Login(LoginState::new());
 
     loop {
+        // Increment animation frame counter
+        if let AppScreen::InGame(ref mut state) = screen {
+            state.frame += 1;
+        }
+
         // Draw
         terminal.draw(|f| match &screen {
             AppScreen::Connecting => {}

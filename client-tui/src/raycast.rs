@@ -213,6 +213,72 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
         }
     }
 
+    // Draw 3D mesh objects (monsters, items) on top of the raycasted scene
+    {
+        use crate::mesh3d::*;
+
+        let time = state.frame as f64 * 0.05;
+
+        // Detect if monsters are present from recent game log
+        let has_monsters = state.game_log.iter().rev().take(20)
+            .any(|l| l.contains("You see a") || l.contains("Combat!"));
+
+        if has_monsters {
+            // Render a rotating monster in the center of the view
+            let monster = create_monster();
+            let mut mesh_buf: Vec<Vec<(char, [u8; 3])>> =
+                vec![vec![(' ', [0, 0, 0]); screen_w]; screen_h];
+            let mut mesh_zbuf: Vec<Vec<f64>> =
+                vec![vec![f64::MAX; screen_w]; screen_h];
+
+            render_mesh(
+                &mut mesh_buf,
+                &mut mesh_zbuf,
+                &monster,
+                (time * 0.3, time * 0.7, 0.0), // slow rotation
+                Vec3::new(0.0, -0.2, 5.0),      // center, 5 units away
+                1.0,
+                [220, 80, 80], // red-ish monster
+            );
+
+            // Composite mesh onto raycasted scene
+            for y in 0..screen_h {
+                for x in 0..screen_w {
+                    if mesh_buf[y][x].0 != ' ' {
+                        let [r, g, b] = mesh_buf[y][x].1;
+                        buf[y][x] = (mesh_buf[y][x].0, Color::Rgb(r, g, b), Color::Reset);
+                    }
+                }
+            }
+        } else {
+            // No monsters — show a slowly rotating diamond/gem as ambient decoration
+            let diamond = create_diamond();
+            let mut mesh_buf: Vec<Vec<(char, [u8; 3])>> =
+                vec![vec![(' ', [0, 0, 0]); screen_w]; screen_h];
+            let mut mesh_zbuf: Vec<Vec<f64>> =
+                vec![vec![f64::MAX; screen_w]; screen_h];
+
+            render_mesh(
+                &mut mesh_buf,
+                &mut mesh_zbuf,
+                &diamond,
+                (time * 0.5, time, time * 0.3),
+                Vec3::new(0.0, 0.0, 6.0),
+                0.6,
+                [80, 200, 220], // cyan gem
+            );
+
+            for y in 0..screen_h {
+                for x in 0..screen_w {
+                    if mesh_buf[y][x].0 != ' ' {
+                        let [r, g, b] = mesh_buf[y][x].1;
+                        buf[y][x] = (mesh_buf[y][x].0, Color::Rgb(r, g, b), Color::Reset);
+                    }
+                }
+            }
+        }
+    }
+
     // Draw exit labels
     let mid_x = screen_w / 2;
     let mid_y = screen_h / 2;
