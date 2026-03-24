@@ -1201,10 +1201,19 @@ impl ConnectionActor {
         .unwrap_or(None);
 
         if let Some((room_id,)) = persisted_room {
-            let mut w = self.state.world.write().await;
-            w.player_positions
-                .insert(character_id.to_string(), RoomId(room_id));
-            return;
+            // Verify the room still exists (dungeons are ephemeral)
+            let room_exists = {
+                let w = self.state.world.read().await;
+                w.rooms.contains_key(&RoomId(room_id.clone()))
+            };
+            if room_exists {
+                let mut w = self.state.world.write().await;
+                w.player_positions
+                    .insert(character_id.to_string(), RoomId(room_id));
+                return;
+            }
+            // Room gone (e.g., dungeon despawned) — fall through to default spawn
+            debug!(%character_id, %room_id, "persisted room no longer exists, respawning at default");
         }
 
         // No persisted position — use default spawn
