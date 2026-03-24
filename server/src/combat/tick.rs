@@ -43,14 +43,25 @@ pub async fn combat_tick_loop(
 
         if has_combats {
             // 2. Snapshot player stats from DB for all players in combat
-            let player_stats = snapshot_player_stats(&combat_manager, &db).await;
+            let mut player_stats = snapshot_player_stats(&combat_manager, &db).await;
 
             // 3. Process one round
             let results = {
                 let mut mgr = combat_manager.write().await;
                 let mut monsters = active_monsters.write().await;
-                mgr.tick(&mut monsters, &player_stats)
+                mgr.tick(&mut monsters, &mut player_stats)
             };
+
+            // 3b. Persist player HP changes to DB
+            for (char_id, stats) in &player_stats {
+                let _ = sqlx::query(
+                    "UPDATE characters SET hp = ? WHERE id = ?"
+                )
+                .bind(stats.hp)
+                .bind(char_id)
+                .execute(&db)
+                .await;
+            }
 
             // 4. Dispatch results
             for (room_id, result) in &results {
@@ -170,6 +181,7 @@ async fn snapshot_player_stats(
             .unwrap_or(None);
 
         if let Some((name, hp, max_hp, mana, max_mana, stamina, max_stamina, xp, level, str_s, dex_s, con_s, int_s, wis_s, cha_s, class)) = row {
+            debug!(%char_id, %name, hp, max_hp, "snapshot player stats for combat");
             let pcs = build_player_combat_stats(
                 char_id, &name, hp, max_hp, mana, max_mana, stamina, max_stamina,
                 xp, level as i32, str_s as u8, dex_s as u8, con_s as u8, int_s as u8, wis_s as u8, cha_s as u8,

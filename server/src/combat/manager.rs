@@ -78,7 +78,7 @@ impl CombatManager {
     pub fn tick(
         &mut self,
         active_monsters: &mut HashMap<RoomId, Vec<ActiveMonster>>,
-        player_stats: &HashMap<String, PlayerCombatStats>,
+        player_stats: &mut HashMap<String, PlayerCombatStats>,
     ) -> HashMap<RoomId, RoundResult> {
         let mut results = HashMap::new();
         let mut rooms_to_remove = Vec::new();
@@ -373,7 +373,7 @@ fn apply_damage_to_target(
     damage: i32,
     active_monsters: &mut HashMap<RoomId, Vec<ActiveMonster>>,
     room_id: &RoomId,
-    player_stats: &HashMap<String, PlayerCombatStats>,
+    player_stats: &mut HashMap<String, PlayerCombatStats>,
     log_entries: &mut Vec<String>,
     deaths: &mut Vec<DeathEvent>,
     monster_kills: &mut Vec<MonsterKill>,
@@ -399,11 +399,10 @@ fn apply_damage_to_target(
             }
         }
         CombatantId::Player(char_id) => {
-            // Player damage is tracked via player_stats which is read-only here.
-            // The actual HP modification happens in the tick loop caller.
-            // We just record the death event if HP would reach 0.
-            if let Some(stats) = player_stats.get(char_id) {
-                if stats.hp - damage <= 0 {
+            if let Some(stats) = player_stats.get_mut(char_id) {
+                stats.hp -= damage;
+                if stats.hp <= 0 {
+                    stats.hp = 0;
                     log_entries.push(format!("{} has been slain!", stats.name));
                     deaths.push(DeathEvent {
                         character_id: char_id.clone(),
