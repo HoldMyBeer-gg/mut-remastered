@@ -12,4 +12,5 @@ pub mod db;
 pub mod inventory;
 pub mod net;
 pub mod session;
+pub mod social;
 pub mod world;

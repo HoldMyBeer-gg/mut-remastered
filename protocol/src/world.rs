@@ -24,6 +24,20 @@ pub enum ClientMsg {
     Stats,
     /// Set character biography (max 500 characters)
     Bio { text: String },
+    /// Say something in the current room (IC)
+    Say { text: String },
+    /// Perform an emote in the current room (IC)
+    Emote { text: String },
+    /// Whisper to a player in the same room
+    Whisper { target: String, text: String },
+    /// Global out-of-character chat
+    Gossip { text: String },
+    /// Toggle a chat channel on/off
+    ToggleChannel { channel: String },
+    /// Inspect another player in the same room
+    LookAt { target: String },
+    /// Set visible character description
+    SetDescription { text: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -87,6 +101,32 @@ pub enum ServerMsg {
     BioOk,
     /// Generic failure for world/inventory actions.
     WorldActionFail { reason: String },
+    /// Chat message from a channel (say, gossip).
+    ChatMessage {
+        channel: String,
+        sender: String,
+        text: String,
+    },
+    /// Emote from a player.
+    EmoteMessage { sender: String, text: String },
+    /// Private whisper received.
+    WhisperMessage { from: String, text: String },
+    /// Whisper sent confirmation.
+    WhisperSent { to: String, text: String },
+    /// Result of inspecting another player.
+    LookAtResult {
+        name: String,
+        race: String,
+        class: String,
+        level: i32,
+        description: String,
+        bio: String,
+        equipped: Vec<EquippedInfo>,
+    },
+    /// Character description updated.
+    DescriptionOk,
+    /// Channel toggle confirmation.
+    ChannelToggled { channel: String, enabled: bool },
 }
 
 /// Info about an item in inventory (not equipped).

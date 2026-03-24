@@ -501,6 +501,33 @@ async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
         "quit" | "exit" => {
             send_msg(tx, NS_AUTH, &protocol::auth::ClientMsg::Logout).await;
         }
+        "say" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Say { text: arg }).await;
+        }
+        "emote" | "em" | "me" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Emote { text: arg }).await;
+        }
+        "whisper" | "tell" => {
+            let wparts: Vec<&str> = arg.splitn(2, ' ').collect();
+            if wparts.len() == 2 {
+                send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Whisper {
+                    target: wparts[0].to_string(),
+                    text: wparts[1].to_string(),
+                }).await;
+            }
+        }
+        "gossip" | "ooc" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Gossip { text: arg }).await;
+        }
+        "toggle" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::ToggleChannel { channel: arg }).await;
+        }
+        "lookat" | "inspect" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::LookAt { target: arg }).await;
+        }
+        "describe" | "desc" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::SetDescription { text: arg }).await;
+        }
         _ => {
             // Try as interact command
             send_msg(
@@ -704,6 +731,39 @@ async fn handle_server_message(
                     }
                     protocol::world::ServerMsg::WorldActionFail { reason } => {
                         state.log(format!("⛔ {}", reason));
+                    }
+                    protocol::world::ServerMsg::ChatMessage { channel, sender, text } => {
+                        let prefix = if channel == "gossip" { "[OOC]" } else { "[IC]" };
+                        state.log(format!("{} {} says: {}", prefix, sender, text));
+                    }
+                    protocol::world::ServerMsg::EmoteMessage { sender, text } => {
+                        state.log(format!("[IC] {} {}", sender, text));
+                    }
+                    protocol::world::ServerMsg::WhisperMessage { from, text } => {
+                        state.log(format!("[WHISPER] {} whispers: {}", from, text));
+                    }
+                    protocol::world::ServerMsg::WhisperSent { to, text } => {
+                        state.log(format!("[WHISPER] You whisper to {}: {}", to, text));
+                    }
+                    protocol::world::ServerMsg::LookAtResult { name, race, class, level, description, bio, equipped } => {
+                        state.log("── Player Info ──".to_string());
+                        state.log(format!("  {} — {} {} Lv {}", name, race, class, level));
+                        if !description.is_empty() {
+                            state.log(format!("  {}", description));
+                        }
+                        if !bio.is_empty() {
+                            state.log(format!("  Bio: {}", bio));
+                        }
+                        for eq in &equipped {
+                            state.log(format!("  ⚔ [{}] {}", eq.slot, eq.name));
+                        }
+                    }
+                    protocol::world::ServerMsg::DescriptionOk => {
+                        state.log("Description updated.".to_string());
+                    }
+                    protocol::world::ServerMsg::ChannelToggled { channel, enabled } => {
+                        let status = if enabled { "ON" } else { "OFF" };
+                        state.log(format!("Channel '{}' is now {}.", channel, status));
                     }
                 }
             }

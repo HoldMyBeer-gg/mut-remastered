@@ -32,6 +32,8 @@ pub struct AppState {
     pub respawn_timers: Arc<RwLock<Vec<RespawnTimer>>>,
     /// Item templates loaded from TOML (immutable after startup).
     pub item_templates: Arc<HashMap<String, crate::inventory::types::ItemTemplate>>,
+    /// Global gossip broadcast channel (all online players subscribe).
+    pub gossip_channel: broadcast::Sender<(String, String)>, // (sender_name, text)
 }
 
 /// Accept loop: binds TCP listener and spawns one independent task per connection.

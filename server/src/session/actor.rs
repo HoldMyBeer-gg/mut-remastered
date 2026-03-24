@@ -52,6 +52,8 @@ pub struct ConnectionActor {
     /// Whether the player has completed the tutorial.
     /// Loaded from account_flags table on login.
     tutorial_complete: bool,
+    /// Subscription to the global gossip broadcast channel.
+    gossip_receiver: Option<broadcast::Receiver<(String, String)>>,
 }
 
 impl ConnectionActor {
@@ -66,6 +68,7 @@ impl ConnectionActor {
             active_character_name: None,
             room_receiver: None,
             tutorial_complete: false,
+            gossip_receiver: None,
         }
     }
 
@@ -131,6 +134,25 @@ impl ConnectionActor {
                     Err(broadcast::error::RecvError::Closed) => {
                         self.room_receiver = None;
                     }
+                }
+            }
+
+            // Drain gossip messages (non-blocking)
+            let mut gossip_msgs = Vec::new();
+            if let Some(ref mut gossip_rx) = self.gossip_receiver {
+                while let Ok((sender, text)) = gossip_rx.try_recv() {
+                    gossip_msgs.push((sender, text));
+                }
+            }
+            for (sender, text) in gossip_msgs {
+                let msg = WorldServerMsg::ChatMessage {
+                    channel: "gossip".to_string(),
+                    sender,
+                    text,
+                };
+                if let Err(e) = self.send_world(msg).await {
+                    warn!(error = %e, "failed to send gossip message");
+                    break;
                 }
             }
         }
@@ -455,6 +477,99 @@ impl ConnectionActor {
                 .await;
                 self.send_world(resp).await?;
             }
+
+            protocol::world::ClientMsg::Say { text } => {
+                let name = self.active_character_name.clone().unwrap_or_default();
+                // Broadcast to room via room channel
+                let room_id = {
+                    let w = self.state.world.read().await;
+                    w.player_positions.get(&character_id).cloned()
+                };
+                if let Some(room_id) = room_id {
+                    let channels = self.state.room_channels.read().await;
+                    if let Some(sender) = channels.get(&room_id) {
+                        let _ = sender.send(crate::world::types::WorldEvent {
+                            message: format!("[IC] {} says: {}", name, text),
+                        });
+                    }
+                }
+            }
+
+            protocol::world::ClientMsg::Emote { text } => {
+                let name = self.active_character_name.clone().unwrap_or_default();
+                let room_id = {
+                    let w = self.state.world.read().await;
+                    w.player_positions.get(&character_id).cloned()
+                };
+                if let Some(room_id) = room_id {
+                    let channels = self.state.room_channels.read().await;
+                    if let Some(sender) = channels.get(&room_id) {
+                        let _ = sender.send(crate::world::types::WorldEvent {
+                            message: format!("[IC] {} {}", name, text),
+                        });
+                    }
+                }
+            }
+
+            protocol::world::ClientMsg::Whisper { target, text } => {
+                let name = self.active_character_name.clone().unwrap_or_default();
+                // Find target in same room — for now send as room event with target prefix
+                // A proper whisper would need direct-to-actor messaging; use room broadcast with filtering
+                let room_id = {
+                    let w = self.state.world.read().await;
+                    w.player_positions.get(&character_id).cloned()
+                };
+                if let Some(room_id) = room_id {
+                    let channels = self.state.room_channels.read().await;
+                    if let Some(sender) = channels.get(&room_id) {
+                        let _ = sender.send(crate::world::types::WorldEvent {
+                            message: format!("[WHISPER] {} whispers to {}: {}", name, target, text),
+                        });
+                    }
+                }
+                self.send_world(WorldServerMsg::WhisperSent {
+                    to: target,
+                    text,
+                })
+                .await?;
+            }
+
+            protocol::world::ClientMsg::Gossip { text } => {
+                let name = self.active_character_name.clone().unwrap_or_default();
+                let _ = self.state.gossip_channel.send((name, text));
+            }
+
+            protocol::world::ClientMsg::ToggleChannel { channel } => {
+                let resp = crate::social::commands::handle_toggle_channel(
+                    &self.state.db,
+                    &character_id,
+                    &channel,
+                )
+                .await;
+                self.send_world(resp).await?;
+            }
+
+            protocol::world::ClientMsg::LookAt { target } => {
+                let resp = crate::social::commands::handle_look_at(
+                    &self.state.db,
+                    &self.state.world,
+                    &character_id,
+                    &target,
+                    &self.state.item_templates,
+                )
+                .await;
+                self.send_world(resp).await?;
+            }
+
+            protocol::world::ClientMsg::SetDescription { text } => {
+                let resp = crate::social::commands::handle_set_description(
+                    &self.state.db,
+                    &character_id,
+                    &text,
+                )
+                .await;
+                self.send_world(resp).await?;
+            }
         }
         Ok(())
     }
@@ -716,6 +831,9 @@ impl ConnectionActor {
 
                 // Send initial vitals (CHAR-01)
                 self.send_vitals(&character_id).await?;
+
+                // Subscribe to global gossip channel
+                self.gossip_receiver = Some(self.state.gossip_channel.subscribe());
             }
         }
         Ok(())

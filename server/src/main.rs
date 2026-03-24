@@ -83,6 +83,7 @@ async fn main() -> anyhow::Result<()> {
     let active_monsters = Arc::new(RwLock::new(active_monsters));
     let respawn_timers = Arc::new(RwLock::new(Vec::new()));
     let item_templates = Arc::new(item_templates);
+    let (gossip_tx, _gossip_rx) = broadcast::channel::<(String, String)>(64);
 
     // Spawn combat tick loop (runs every 2 seconds in background)
     tokio::spawn(combat_tick_loop(
@@ -106,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
         active_monsters,
         respawn_timers,
         item_templates,
+        gossip_channel: gossip_tx,
     };
 
     // Start TCP accept loop — blocks until server shuts down
