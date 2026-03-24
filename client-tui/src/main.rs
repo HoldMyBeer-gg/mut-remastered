@@ -1,13 +1,758 @@
-use protocol::auth::ClientMsg;
-use protocol::codec::{NS_AUTH, decode_message, encode_message};
+//! MUT Remastered — Native TUI Client
+//!
+//! Connects to the MUT server via TCP, handles login, character selection,
+//! and presents a split-panel game interface using Ratatui.
 
-fn main() {
-    // Stub: proves protocol crate compiles into client binary.
-    // Full TUI client implementation in Phase 4.
-    let msg = ClientMsg::Ping;
-    let encoded = encode_message(NS_AUTH, &msg).expect("encode");
-    // encoded = [len: 4 bytes][ns: 1 byte][postcard payload...]
-    let decoded: ClientMsg = decode_message(NS_AUTH, &encoded[4..]).expect("decode");
-    assert_eq!(msg, decoded);
-    println!("client-tui: protocol crate linked successfully");
+mod app;
+mod net;
+mod ui;
+
+use std::io;
+use std::time::Duration;
+
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::execute;
+use crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
+use ratatui::prelude::*;
+use tokio::net::tcp::OwnedWriteHalf;
+use tokio::sync::mpsc;
+
+use app::*;
+use net::*;
+use protocol::codec::*;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let addr = std::env::var("MUT_SERVER").unwrap_or_else(|_| "127.0.0.1:4000".to_string());
+
+    // Setup terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    let result = run_app(&mut terminal, &addr).await;
+
+    // Restore terminal
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    terminal.show_cursor()?;
+
+    if let Err(e) = result {
+        eprintln!("Error: {e}");
+    }
+    Ok(())
+}
+
+async fn run_app(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    addr: &str,
+) -> anyhow::Result<()> {
+    let mut screen = AppScreen::Connecting;
+
+    // Draw connecting screen
+    terminal.draw(|f| {
+        let area = f.area();
+        let msg = ratatui::widgets::Paragraph::new(format!("Connecting to {}...", addr))
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(Color::Cyan));
+        let centered = Layout::vertical([
+            Constraint::Percentage(45),
+            Constraint::Length(1),
+            Constraint::Percentage(45),
+        ])
+        .split(area);
+        f.render_widget(msg, centered[1]);
+    })?;
+
+    // Connect to server
+    let (mut reader, writer) = net::connect(addr).await?;
+
+    // Channel for server messages → UI
+    let (server_tx, mut server_rx) = mpsc::channel::<ServerMessage>(64);
+    // Channel for outgoing messages
+    let (client_tx, mut client_rx) = mpsc::channel::<(u8, Vec<u8>)>(64);
+
+    // Background reader task
+    tokio::spawn(async move {
+        loop {
+            match read_frame(&mut reader).await {
+                Ok(Some(payload)) => {
+                    let msg = decode_server_message(&payload);
+                    if server_tx.send(msg).await.is_err() {
+                        break;
+                    }
+                }
+                Ok(None) => break,
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Background writer task
+    let writer_handle = tokio::spawn(async move {
+        let mut writer: OwnedWriteHalf = writer;
+        while let Some((_ns, full_frame)) = client_rx.recv().await {
+            // full_frame is already [4-byte len][ns][postcard payload]
+            if tokio::io::AsyncWriteExt::write_all(&mut writer, &full_frame)
+                .await
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
+
+    // Move to login screen
+    screen = AppScreen::Login(LoginState::new());
+
+    loop {
+        // Draw
+        terminal.draw(|f| match &screen {
+            AppScreen::Connecting => {}
+            AppScreen::Login(state) => ui::render_login(f, state),
+            AppScreen::CharacterSelect(state) => ui::render_char_select(f, state),
+            AppScreen::InGame(state) => ui::render_game(f, state),
+        })?;
+
+        // Poll for events (input + server messages)
+        // Use a short timeout to check server messages frequently
+        if event::poll(Duration::from_millis(50))? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind != KeyEventKind::Press {
+                    continue;
+                }
+
+                // Global quit: Ctrl-C
+                if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c')
+                {
+                    break;
+                }
+
+                match &mut screen {
+                    AppScreen::Login(state) => {
+                        handle_login_input(key.code, state, &client_tx).await;
+                        if key.code == KeyCode::Esc {
+                            break;
+                        }
+                    }
+                    AppScreen::CharacterSelect(state) => {
+                        let action =
+                            handle_char_select_input(key.code, state, &client_tx).await;
+                        if action == CharSelectAction::Quit {
+                            break;
+                        }
+                    }
+                    AppScreen::InGame(state) => {
+                        handle_game_input(key.code, state, &client_tx).await;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Process server messages
+        while let Ok(msg) = server_rx.try_recv() {
+            match handle_server_message(msg, &mut screen, &client_tx).await {
+                MessageResult::Continue => {}
+                MessageResult::Quit => break,
+            }
+        }
+    }
+
+    drop(client_tx);
+    let _ = writer_handle.await;
+    Ok(())
+}
+
+/// Send a protocol message through the client channel.
+async fn send_msg<T: serde::Serialize>(tx: &mpsc::Sender<(u8, Vec<u8>)>, ns: u8, msg: &T) {
+    // Use protocol's encode_message which returns [4-byte len][ns][postcard payload]
+    // We need to send the raw bytes to the writer task which writes directly to TCP.
+    let full_frame = protocol::codec::encode_message(ns, msg).unwrap();
+    // The writer task expects (ns, postcard_payload), but let's simplify:
+    // Send the full frame bytes directly. Redefine the channel to carry raw frames.
+    // Actually, let's just send the full encoded frame and have the writer forward it.
+    let _ = tx.send((0, full_frame)).await;
+}
+
+// ── Input Handlers ─────────────────────────────────────────────
+
+async fn handle_login_input(
+    key: KeyCode,
+    state: &mut LoginState,
+    tx: &mpsc::Sender<(u8, Vec<u8>)>,
+) {
+    match key {
+        KeyCode::Tab => {
+            state.focus = (state.focus + 1) % 2;
+        }
+        KeyCode::Char('r') | KeyCode::Char('R') if state.focus != 0 || state.username.is_empty() => {
+            state.registering = !state.registering;
+        }
+        KeyCode::Char(c) => {
+            if state.focus == 0 {
+                state.username.push(c);
+            } else {
+                state.password.push(c);
+            }
+        }
+        KeyCode::Backspace => {
+            if state.focus == 0 {
+                state.username.pop();
+            } else {
+                state.password.pop();
+            }
+        }
+        KeyCode::Enter => {
+            if state.username.is_empty() || state.password.is_empty() {
+                state.error_message = Some("Username and password required".to_string());
+                return;
+            }
+            state.error_message = None;
+            if state.registering {
+                send_msg(
+                    tx,
+                    NS_AUTH,
+                    &protocol::auth::ClientMsg::Register {
+                        username: state.username.clone(),
+                        password: state.password.clone(),
+                    },
+                )
+                .await;
+            } else {
+                send_msg(
+                    tx,
+                    NS_AUTH,
+                    &protocol::auth::ClientMsg::Login {
+                        username: state.username.clone(),
+                        password: state.password.clone(),
+                    },
+                )
+                .await;
+            }
+        }
+        _ => {}
+    }
+}
+
+#[derive(PartialEq)]
+enum CharSelectAction {
+    Continue,
+    Quit,
+}
+
+async fn handle_char_select_input(
+    key: KeyCode,
+    state: &mut CharSelectState,
+    tx: &mpsc::Sender<(u8, Vec<u8>)>,
+) -> CharSelectAction {
+    if state.creating {
+        match key {
+            KeyCode::Esc => {
+                state.creating = false;
+                state.error_message = None;
+            }
+            KeyCode::Tab => {
+                state.create_focus = (state.create_focus + 1) % 4;
+            }
+            KeyCode::Char(c) if state.create_focus == 0 => {
+                state.create_name.push(c);
+            }
+            KeyCode::Backspace if state.create_focus == 0 => {
+                state.create_name.pop();
+            }
+            KeyCode::Left => match state.create_focus {
+                1 => {
+                    state.create_race =
+                        (state.create_race + RACES.len() - 1) % RACES.len();
+                }
+                2 => {
+                    state.create_class =
+                        (state.create_class + CLASSES.len() - 1) % CLASSES.len();
+                }
+                3 => {
+                    state.create_gender =
+                        (state.create_gender + GENDERS.len() - 1) % GENDERS.len();
+                }
+                _ => {}
+            },
+            KeyCode::Right => match state.create_focus {
+                1 => state.create_race = (state.create_race + 1) % RACES.len(),
+                2 => state.create_class = (state.create_class + 1) % CLASSES.len(),
+                3 => state.create_gender = (state.create_gender + 1) % GENDERS.len(),
+                _ => {}
+            },
+            KeyCode::Enter => {
+                if state.create_name.is_empty() {
+                    state.error_message = Some("Name required".to_string());
+                    return CharSelectAction::Continue;
+                }
+                // Standard point-buy: 15, 14, 13, 12, 10, 8 = 27 points
+                let scores = [15, 14, 13, 12, 10, 8];
+                let race = RACES[state.create_race];
+                let racial_choices = match race {
+                    "human" => vec![0, 1],    // +1 STR, +1 DEX
+                    "half_elf" => vec![0],    // +1 STR
+                    _ => vec![],
+                };
+                send_msg(
+                    tx,
+                    NS_CHAR,
+                    &protocol::character::ClientMsg::CharacterCreate {
+                        name: state.create_name.clone(),
+                        race: race.to_string(),
+                        class: CLASSES[state.create_class].to_string(),
+                        gender: GENDERS[state.create_gender].to_string(),
+                        ability_scores: scores,
+                        racial_bonus_choices: racial_choices,
+                    },
+                )
+                .await;
+            }
+            _ => {}
+        }
+        return CharSelectAction::Continue;
+    }
+
+    match key {
+        KeyCode::Esc => return CharSelectAction::Quit,
+        KeyCode::Char('c') | KeyCode::Char('C') => {
+            state.creating = true;
+            state.create_name.clear();
+            state.create_focus = 0;
+            state.error_message = None;
+        }
+        KeyCode::Up => {
+            if state.selected_index > 0 {
+                state.selected_index -= 1;
+            }
+        }
+        KeyCode::Down => {
+            if state.selected_index + 1 < state.characters.len() {
+                state.selected_index += 1;
+            }
+        }
+        KeyCode::Enter => {
+            if let Some(c) = state.characters.get(state.selected_index) {
+                send_msg(
+                    tx,
+                    NS_CHAR,
+                    &protocol::character::ClientMsg::CharacterSelect {
+                        character_id: c.id.clone(),
+                    },
+                )
+                .await;
+            }
+        }
+        _ => {}
+    }
+    CharSelectAction::Continue
+}
+
+async fn handle_game_input(
+    key: KeyCode,
+    state: &mut GameState,
+    tx: &mpsc::Sender<(u8, Vec<u8>)>,
+) {
+    match key {
+        KeyCode::Char(c) => {
+            state.input.push(c);
+        }
+        KeyCode::Backspace => {
+            state.input.pop();
+        }
+        KeyCode::Enter => {
+            let cmd = state.input.trim().to_string();
+            if cmd.is_empty() {
+                return;
+            }
+            state.history.push(cmd.clone());
+            state.history_index = None;
+            state.input.clear();
+
+            // Parse and send command
+            parse_and_send_command(&cmd, tx).await;
+        }
+        KeyCode::Up => {
+            // Command history navigation
+            if !state.history.is_empty() {
+                let idx = match state.history_index {
+                    Some(i) if i > 0 => i - 1,
+                    Some(i) => i,
+                    None => state.history.len() - 1,
+                };
+                state.history_index = Some(idx);
+                state.input = state.history[idx].clone();
+            }
+        }
+        KeyCode::Down => {
+            if let Some(idx) = state.history_index {
+                if idx + 1 < state.history.len() {
+                    state.history_index = Some(idx + 1);
+                    state.input = state.history[idx + 1].clone();
+                } else {
+                    state.history_index = None;
+                    state.input.clear();
+                }
+            }
+        }
+        KeyCode::PageUp => {
+            state.log_scroll = state.log_scroll.saturating_add(5);
+        }
+        KeyCode::PageDown => {
+            state.log_scroll = state.log_scroll.saturating_sub(5);
+        }
+        _ => {}
+    }
+}
+
+/// Parse a text command and send the appropriate protocol message.
+async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
+    let lower = cmd.to_lowercase();
+    let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
+    let verb = parts[0].to_lowercase();
+    let arg = parts.get(1).map(|s| s.to_string()).unwrap_or_default();
+
+    match verb.as_str() {
+        // Movement
+        "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "u" | "up" | "d"
+        | "down" => {
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Move {
+                    direction: verb.clone(),
+                },
+            )
+            .await;
+        }
+        "look" | "l" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Look).await;
+        }
+        "examine" | "exam" => {
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Examine { target: arg },
+            )
+            .await;
+        }
+        "attack" | "kill" | "hit" => {
+            send_msg(
+                tx,
+                NS_COMBAT,
+                &protocol::combat::ClientMsg::Attack { target: arg },
+            )
+            .await;
+        }
+        "flee" | "run" => {
+            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::Flee).await;
+        }
+        "inventory" | "inv" | "i" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Inventory).await;
+        }
+        "get" | "take" | "pickup" => {
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::GetItem { target: arg },
+            )
+            .await;
+        }
+        "drop" => {
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::DropItem { target: arg },
+            )
+            .await;
+        }
+        "equip" | "wear" | "wield" => {
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Equip { item_name: arg },
+            )
+            .await;
+        }
+        "unequip" | "remove" => {
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Unequip { slot: arg },
+            )
+            .await;
+        }
+        "stats" | "score" | "sc" => {
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Stats).await;
+        }
+        "bio" => {
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Bio { text: arg },
+            )
+            .await;
+        }
+        "quit" | "exit" => {
+            send_msg(tx, NS_AUTH, &protocol::auth::ClientMsg::Logout).await;
+        }
+        _ => {
+            // Try as interact command
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Interact {
+                    command: cmd.to_string(),
+                },
+            )
+            .await;
+        }
+    }
+}
+
+// ── Server Message Handler ──────────────────────────────────────
+
+enum MessageResult {
+    Continue,
+    Quit,
+}
+
+async fn handle_server_message(
+    msg: ServerMessage,
+    screen: &mut AppScreen,
+    tx: &mpsc::Sender<(u8, Vec<u8>)>,
+) -> MessageResult {
+    match msg {
+        ServerMessage::Auth(auth_msg) => match auth_msg {
+            protocol::auth::ServerMsg::RegisterOk { .. } => {
+                if let AppScreen::Login(state) = screen {
+                    state.error_message = Some("Registered! Now logging in...".to_string());
+                    state.registering = false;
+                    // Auto-login after register
+                    send_msg(
+                        tx,
+                        NS_AUTH,
+                        &protocol::auth::ClientMsg::Login {
+                            username: state.username.clone(),
+                            password: state.password.clone(),
+                        },
+                    )
+                    .await;
+                }
+            }
+            protocol::auth::ServerMsg::LoginOk { .. } => {
+                // Transition to character select, request character list
+                let mut cs = CharSelectState::new();
+                send_msg(
+                    tx,
+                    NS_CHAR,
+                    &protocol::character::ClientMsg::CharacterList,
+                )
+                .await;
+                *screen = AppScreen::CharacterSelect(cs);
+            }
+            protocol::auth::ServerMsg::LogoutOk => {
+                return MessageResult::Quit;
+            }
+            protocol::auth::ServerMsg::Error { message, .. } => {
+                if let AppScreen::Login(state) = screen {
+                    state.error_message = Some(message);
+                }
+            }
+            _ => {}
+        },
+
+        ServerMessage::Character(char_msg) => match char_msg {
+            protocol::character::ServerMsg::CharacterListResult { characters } => {
+                if let AppScreen::CharacterSelect(state) = screen {
+                    state.characters = characters;
+                    state.selected_index = 0;
+                }
+            }
+            protocol::character::ServerMsg::CharacterCreateOk { character_id, name } => {
+                if let AppScreen::CharacterSelect(state) = screen {
+                    state.creating = false;
+                    state.error_message = None;
+                    // Refresh list
+                    send_msg(
+                        tx,
+                        NS_CHAR,
+                        &protocol::character::ClientMsg::CharacterList,
+                    )
+                    .await;
+                }
+            }
+            protocol::character::ServerMsg::CharacterCreateFail { reason } => {
+                if let AppScreen::CharacterSelect(state) = screen {
+                    state.error_message = Some(reason);
+                }
+            }
+            protocol::character::ServerMsg::CharacterSelected {
+                character_id,
+                name,
+            } => {
+                *screen = AppScreen::InGame(GameState::new(character_id, name));
+            }
+            protocol::character::ServerMsg::CharacterSelectFail { reason } => {
+                if let AppScreen::CharacterSelect(state) = screen {
+                    state.error_message = Some(reason);
+                }
+            }
+        },
+
+        ServerMessage::World(world_msg) => {
+            if let AppScreen::InGame(state) = screen {
+                match world_msg {
+                    protocol::world::ServerMsg::RoomDescription {
+                        room_id,
+                        name,
+                        description,
+                        exits,
+                        hints,
+                        players_here,
+                    } => {
+                        state.room_id = room_id;
+                        state.room_name = name;
+                        state.room_description = description;
+                        state.room_exits = exits;
+                        state.players_here = players_here;
+                        state.record_room();
+                        for hint in hints {
+                            state.log(format!("💡 {}", hint));
+                        }
+                    }
+                    protocol::world::ServerMsg::MoveOk { to_room, .. } => {
+                        state.log(format!("You move to a new area."));
+                    }
+                    protocol::world::ServerMsg::MoveFail { reason } => {
+                        state.log(format!("⛔ {}", reason));
+                    }
+                    protocol::world::ServerMsg::ExamineResult { text } => {
+                        state.log(format!("📖 {}", text));
+                    }
+                    protocol::world::ServerMsg::InteractResult { text } => {
+                        state.log(format!("⚙ {}", text));
+                    }
+                    protocol::world::ServerMsg::WorldEvent { message } => {
+                        state.log(message);
+                    }
+                    protocol::world::ServerMsg::InventoryList {
+                        items,
+                        equipped,
+                        gold,
+                    } => {
+                        state.log("── Inventory ──".to_string());
+                        if items.is_empty() && equipped.is_empty() {
+                            state.log("  (empty)".to_string());
+                        }
+                        for item in &items {
+                            state.log(format!("  📦 {}", item.name));
+                        }
+                        for eq in &equipped {
+                            state.log(format!("  ⚔ [{}] {}", eq.slot, eq.name));
+                        }
+                        state.log(format!("  💰 {} gold", gold));
+                    }
+                    protocol::world::ServerMsg::GetItemOk { item_name } => {
+                        state.log(format!("You pick up {}.", item_name));
+                    }
+                    protocol::world::ServerMsg::DropItemOk { item_name } => {
+                        state.log(format!("You drop {}.", item_name));
+                    }
+                    protocol::world::ServerMsg::EquipOk { item_name, slot } => {
+                        state.log(format!("You equip {} to [{}].", item_name, slot));
+                    }
+                    protocol::world::ServerMsg::UnequipOk { slot, item_name } => {
+                        state.log(format!("You remove {} from [{}].", item_name, slot));
+                    }
+                    protocol::world::ServerMsg::StatsResult {
+                        name,
+                        race,
+                        class,
+                        level,
+                        xp,
+                        hp,
+                        max_hp,
+                        ac,
+                        str_score,
+                        dex_score,
+                        con_score,
+                        int_score,
+                        wis_score,
+                        cha_score,
+                        bio,
+                        ..
+                    } => {
+                        state.log("── Character Stats ──".to_string());
+                        state.log(format!("  {} — {} {} Lv {}", name, race, class, level));
+                        state.log(format!("  HP: {}/{} | AC: {} | XP: {}", hp, max_hp, ac, xp));
+                        state.log(format!(
+                            "  STR {} DEX {} CON {} INT {} WIS {} CHA {}",
+                            str_score, dex_score, con_score, int_score, wis_score, cha_score
+                        ));
+                        if !bio.is_empty() {
+                            state.log(format!("  Bio: {}", bio));
+                        }
+                    }
+                    protocol::world::ServerMsg::BioOk => {
+                        state.log("Biography updated.".to_string());
+                    }
+                    protocol::world::ServerMsg::WorldActionFail { reason } => {
+                        state.log(format!("⛔ {}", reason));
+                    }
+                }
+            }
+        }
+
+        ServerMessage::Combat(combat_msg) => {
+            if let AppScreen::InGame(state) = screen {
+                match combat_msg {
+                    protocol::combat::ServerMsg::Vitals {
+                        hp,
+                        max_hp,
+                        mana,
+                        max_mana,
+                        stamina,
+                        max_stamina,
+                        xp,
+                        level,
+                    } => {
+                        state.hp = hp;
+                        state.max_hp = max_hp;
+                        state.mana = mana;
+                        state.max_mana = max_mana;
+                        state.stamina = stamina;
+                        state.max_stamina = max_stamina;
+                        state.xp = xp;
+                        state.level = level;
+                    }
+                    protocol::combat::ServerMsg::CombatStart { combatants } => {
+                        state.log(format!(
+                            "⚔ Combat! Combatants: {}",
+                            combatants.join(", ")
+                        ));
+                    }
+                    protocol::combat::ServerMsg::CombatLog { entries } => {
+                        for entry in entries {
+                            state.log(entry);
+                        }
+                    }
+                    protocol::combat::ServerMsg::CombatEnd { result } => {
+                        state.log(format!("🏁 {}", result));
+                    }
+                    protocol::combat::ServerMsg::ActionFail { reason } => {
+                        state.log(format!("⛔ {}", reason));
+                    }
+                }
+            }
+        }
+
+        ServerMessage::Unknown => {}
+    }
+    MessageResult::Continue
 }

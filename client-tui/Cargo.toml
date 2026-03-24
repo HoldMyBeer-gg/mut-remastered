@@ -7,3 +7,6 @@ edition = "2021"
 protocol = { path = "../protocol" }
 tokio.workspace = true
 anyhow.workspace = true
+serde.workspace = true
+ratatui = "0.30"
+crossterm = "0.29"
