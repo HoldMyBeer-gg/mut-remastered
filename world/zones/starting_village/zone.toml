@@ -21,6 +21,7 @@ hints = [
 north = "starting_village:tavern"
 east = "starting_village:village_gate"
 south = "starting_village:alley"
+west = "newbie:garden"
 
 [[rooms.triggers]]
 command = "examine well"
@@ -42,6 +43,7 @@ hints = [
 
 [rooms.exits]
 south = "starting_village:market_square"
+north = "starting_village:north_road"
 
 [[rooms.triggers]]
 command = "examine map"
@@ -62,6 +64,7 @@ hints = [
 
 [rooms.exits]
 west = "starting_village:market_square"
+south = "starting_village:old_well"
 
 [[rooms.triggers]]
 command = "pull lever"
@@ -93,4 +96,46 @@ respawn_secs = 120
 command = "examine grate"
 effects = [
     { kind = "message", text = "The iron grate is bolted shut, but the bolts are corroded. With the right tools, it could be forced open. Not today, though." },
+]
+
+[[rooms]]
+id = "starting_village:north_road"
+name = "The North Road"
+description = """
+A dirt road stretches northward through tall grass and scattered boulders. \
+The tavern stands behind you to the south. Ahead, the road bends toward \
+dark hills where rumor says the old dungeon entrance lies. Goblins have \
+been spotted along this stretch."""
+lore = "Wagon ruts and old bloodstains suggest this road was once a busy trade route — before the goblins came."
+
+[rooms.exits]
+south = "starting_village:tavern"
+
+[[rooms.spawns]]
+monster = "goblin_scout"
+count = 1
+respawn_secs = 180
+
+[[rooms]]
+id = "starting_village:old_well"
+name = "The Abandoned Well"
+description = """
+A crumbling stone well sits at a crossroads overgrown with weeds. \
+A rusted bucket hangs from a frayed rope. Something moves in the shadows \
+below. The market square is to the east, and a narrow path leads south \
+into deeper brush."""
+lore = "Old Marta says she once saw eyes glowing from the bottom of this well. Nobody draws water from it anymore."
+
+[rooms.exits]
+east = "starting_village:village_gate"
+
+[[rooms.spawns]]
+monster = "cave_spider"
+count = 1
+respawn_secs = 180
+
+[[rooms.triggers]]
+command = "look down well"
+effects = [
+    { kind = "message", text = "You peer into the darkness. Something skitters below — multiple legs, gleaming eyes. You pull back quickly." },
 ]
