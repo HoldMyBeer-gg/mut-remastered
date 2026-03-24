@@ -520,7 +520,9 @@ async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Look).await;
         }
         "/examine" | "/exam" | "/ex" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Examine { target: arg }).await;
+            // Send as both Examine (for lore) and Interact (for triggers)
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Examine { target: arg.clone() }).await;
+            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Interact { command: format!("examine {}", arg) }).await;
         }
         "/attack" | "/kill" | "/hit" | "/a" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::Attack { target: arg }).await;
