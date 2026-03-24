@@ -110,6 +110,15 @@ async fn main() -> anyhow::Result<()> {
         gossip_channel: gossip_tx,
     };
 
+    // Spawn WebSocket server (for browser clients) on separate port
+    let ws_state = state.clone();
+    let ws_addr = config.ws_bind_addr.clone();
+    tokio::spawn(async move {
+        if let Err(e) = server::net::ws::run_ws_server(&ws_addr, ws_state).await {
+            tracing::error!(error = %e, "WebSocket server error");
+        }
+    });
+
     // Start TCP accept loop — blocks until server shuts down
     run_listener(&config.bind_addr, state).await?;
 

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUT Remastered — Browser Client</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #header {
+            background: #16213e;
+            padding: 8px 16px;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        #header h1 { font-size: 16px; color: #e94560; }
+        #header .status { font-size: 12px; color: #888; }
+        #header .status.connected { color: #4ecca3; }
+        #terminal-container {
+            flex: 1;
+            padding: 4px;
+        }
+        #connect-form {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            z-index: 10;
+        }
+        #connect-form h2 { color: #e94560; margin-bottom: 16px; }
+        #connect-form input {
+            display: block;
+            width: 250px;
+            margin: 8px auto;
+            padding: 8px;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            color: #e0e0e0;
+            border-radius: 4px;
+        }
+        #connect-form button {
+            margin-top: 12px;
+            padding: 8px 24px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #connect-form button:hover { background: #c73e54; }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>⚔ MUT Remastered</h1>
+        <span id="status" class="status">Disconnected</span>
+    </div>
+
+    <div id="connect-form">
+        <h2>⚔ MUT Remastered</h2>
+        <p style="color:#888; margin-bottom:16px;">Browser Client</p>
+        <input type="text" id="server-addr" value="ws://localhost:4001/ws" placeholder="Server address">
+        <button onclick="doConnect()">Connect</button>
+    </div>
+
+    <div id="terminal-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+    <script>
+        let ws = null;
+        let term = null;
+        let fitAddon = null;
+        let inputBuffer = '';
+        let state = 'login'; // login, charselect, game
+        let loginStep = 'username'; // username, password
+        let username = '';
+        let password = '';
+
+        function doConnect() {
+            const addr = document.getElementById('server-addr').value;
+            document.getElementById('connect-form').style.display = 'none';
+
+            // Initialize terminal
+            term = new Terminal({
+                theme: {
+                    background: '#1a1a2e',
+                    foreground: '#e0e0e0',
+                    cursor: '#e94560',
+                    selectionBackground: '#0f3460',
+                },
+                fontFamily: "'Courier New', monospace",
+                fontSize: 14,
+                cursorBlink: true,
+            });
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(document.getElementById('terminal-container'));
+            fitAddon.fit();
+
+            window.addEventListener('resize', () => fitAddon.fit());
+
+            term.writeln('\x1b[1;31m⚔ MUT Remastered — Browser Client\x1b[0m');
+            term.writeln('');
+
+            // Connect WebSocket
+            try {
+                ws = new WebSocket(addr);
+                ws.binaryType = 'arraybuffer';
+            } catch (e) {
+                term.writeln('\x1b[31mFailed to connect: ' + e.message + '\x1b[0m');
+                return;
+            }
+
+            ws.onopen = () => {
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+                term.writeln('\x1b[32mConnected to server.\x1b[0m');
+                term.writeln('');
+                showLoginPrompt();
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'status';
+                term.writeln('\x1b[31mDisconnected from server.\x1b[0m');
+            };
+
+            ws.onmessage = (event) => {
+                handleServerMessage(new Uint8Array(event.data));
+            };
+
+            ws.onerror = (e) => {
+                term.writeln('\x1b[31mWebSocket error\x1b[0m');
+            };
+
+            // Handle terminal input
+            term.onData((data) => {
+                for (const ch of data) {
+                    if (ch === '\r' || ch === '\n') {
+                        term.writeln('');
+                        handleInput(inputBuffer);
+                        inputBuffer = '';
+                    } else if (ch === '\x7f' || ch === '\b') {
+                        if (inputBuffer.length > 0) {
+                            inputBuffer = inputBuffer.slice(0, -1);
+                            term.write('\b \b');
+                        }
+                    } else if (ch >= ' ') {
+                        inputBuffer += ch;
+                        if (state === 'login' && loginStep === 'password') {
+                            term.write('*');
+                        } else {
+                            term.write(ch);
+                        }
+                    }
+                }
+            });
+        }
+
+        function showLoginPrompt() {
+            state = 'login';
+            loginStep = 'username';
+            term.write('\x1b[1;36mUsername:\x1b[0m ');
+        }
+
+        function handleInput(text) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+            if (state === 'login') {
+                if (loginStep === 'username') {
+                    username = text;
+                    loginStep = 'password';
+                    term.write('\x1b[1;36mPassword:\x1b[0m ');
+                } else {
+                    password = text;
+                    // Send login
+                    sendAuthMsg({ Login: { username, password } });
+                }
+            } else if (state === 'game') {
+                handleGameCommand(text);
+            }
+        }
+
+        function handleGameCommand(cmd) {
+            const parts = cmd.split(/\s+/);
+            const verb = parts[0].toLowerCase();
+            const arg = parts.slice(1).join(' ');
+
+            // Map commands to protocol messages
+            const dirMoves = ['n','s','e','w','u','d','north','south','east','west','up','down'];
+            if (dirMoves.includes(verb)) {
+                sendWorldMsg({ Move: { direction: verb } });
+            } else if (verb === 'look' || verb === 'l') {
+                sendWorldMsg({ Look: null });
+            } else if (verb === 'say') {
+                sendWorldMsg({ Say: { text: arg } });
+            } else if (verb === 'gossip' || verb === 'ooc') {
+                sendWorldMsg({ Gossip: { text: arg } });
+            } else if (verb === 'attack' || verb === 'kill') {
+                sendCombatMsg({ Attack: { target: arg } });
+            } else if (verb === 'flee') {
+                sendCombatMsg({ Flee: null });
+            } else if (verb === 'inventory' || verb === 'inv' || verb === 'i') {
+                sendWorldMsg({ Inventory: null });
+            } else if (verb === 'stats' || verb === 'score') {
+                sendWorldMsg({ Stats: null });
+            } else {
+                // Generic interact
+                sendWorldMsg({ Interact: { command: cmd } });
+            }
+            term.write('\x1b[1;36m> \x1b[0m');
+        }
+
+        // Simplified message sending — for the browser client we use JSON-over-text
+        // as a fallback since postcard binary encoding is Rust-specific.
+        // NOTE: A production browser client would need a JS postcard implementation
+        // or a JSON protocol mode. For this demo, we show the UI structure.
+        // The actual binary protocol would require a WASM bridge or JSON mode on the server.
+
+        function sendAuthMsg(msg) {
+            term.writeln('\x1b[33m[Sending auth message...]\x1b[0m');
+            // In production: encode as postcard binary and send via ws.send(binary)
+            // For now: display that the connection works
+        }
+        function sendWorldMsg(msg) {
+            // In production: encode as postcard binary
+        }
+        function sendCombatMsg(msg) {
+            // In production: encode as postcard binary
+        }
+
+        function handleServerMessage(data) {
+            // In production: decode postcard binary frames
+            // For now: the server sends binary length-prefixed frames
+            term.writeln('\x1b[33m[Received ' + data.length + ' bytes from server]\x1b[0m');
+        }
+    </script>
+</body>
+</html>

@@ -5,6 +5,8 @@ pub struct ServerConfig {
     pub session_ttl_secs: i64,
     /// Path to the directory containing zone subdirectories (each with a zone.toml).
     pub worlds_dir: String,
+    /// WebSocket server bind address (for browser clients).
+    pub ws_bind_addr: String,
 }
 
 impl ServerConfig {
@@ -20,6 +22,8 @@ impl ServerConfig {
                 .unwrap_or(604800), // 7 days
             worlds_dir: std::env::var("MUT_WORLDS_DIR")
                 .unwrap_or_else(|_| "../world/zones".to_string()),
+            ws_bind_addr: std::env::var("WS_BIND_ADDR")
+                .unwrap_or_else(|_| "127.0.0.1:4001".to_string()),
         }
     }
 }
