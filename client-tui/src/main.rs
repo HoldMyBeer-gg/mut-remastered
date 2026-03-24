@@ -7,6 +7,7 @@ mod app;
 mod dungeon_view;
 mod map;
 mod net;
+mod raycast;
 mod ui;
 
 use std::io;
