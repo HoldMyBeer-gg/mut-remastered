@@ -731,6 +731,7 @@ async fn handle_server_message(
                         state.room_description = description;
                         state.room_exits = exits;
                         state.players_here = players_here;
+                        state.monsters_here = monsters_here.clone();
                         state.record_room();
                         for hint in hints {
                             state.log(format!("💡 {}", hint));
@@ -922,6 +923,9 @@ async fn handle_server_message(
                     }
                     protocol::combat::ServerMsg::CombatEnd { result } => {
                         state.log(format!("🏁 {}", result));
+                        if result.contains("Victory") || result.contains("defeated") {
+                            state.monsters_here.clear();
+                        }
                     }
                     protocol::combat::ServerMsg::ActionFail { reason } => {
                         state.log(format!("⛔ {}", reason));

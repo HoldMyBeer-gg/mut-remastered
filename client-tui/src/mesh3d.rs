@@ -340,3 +340,46 @@ fn add_box(
     faces.push(f(3, 2, 6)); faces.push(f(3, 6, 7));
     faces.push(f(4, 5, 1)); faces.push(f(4, 1, 0));
 }
+
+/// Create a treasure chest shape.
+pub fn create_chest() -> Mesh {
+    let mut verts = Vec::new();
+    let mut faces = Vec::new();
+    // Base box
+    add_box(&mut verts, &mut faces, 0.0, -0.3, 0.0, 0.8, 0.4, 0.5);
+    // Lid (slightly open — angled top)
+    add_box(&mut verts, &mut faces, 0.0, 0.3, -0.1, 0.8, 0.15, 0.45);
+    // Lock
+    add_box(&mut verts, &mut faces, 0.0, 0.0, 0.55, 0.15, 0.15, 0.05);
+    Mesh { vertices: verts, faces }
+}
+
+/// Create a skull shape (sphere-ish with jaw).
+pub fn create_skull() -> Mesh {
+    let mut verts = Vec::new();
+    let mut faces = Vec::new();
+    // Cranium (large box, slightly rounded feel via multiple boxes)
+    add_box(&mut verts, &mut faces, 0.0, 0.3, 0.0, 0.7, 0.6, 0.6);
+    // Brow ridge
+    add_box(&mut verts, &mut faces, 0.0, 0.1, 0.6, 0.65, 0.12, 0.08);
+    // Jaw
+    add_box(&mut verts, &mut faces, 0.0, -0.5, 0.1, 0.5, 0.2, 0.4);
+    // Left eye socket (indent — small dark box)
+    add_box(&mut verts, &mut faces, -0.25, 0.2, 0.55, 0.15, 0.15, 0.1);
+    // Right eye socket
+    add_box(&mut verts, &mut faces, 0.25, 0.2, 0.55, 0.15, 0.15, 0.1);
+    Mesh { vertices: verts, faces }
+}
+
+/// Create a potion bottle shape.
+pub fn create_potion() -> Mesh {
+    let mut verts = Vec::new();
+    let mut faces = Vec::new();
+    // Bottle body (round-ish)
+    add_box(&mut verts, &mut faces, 0.0, -0.2, 0.0, 0.3, 0.5, 0.3);
+    // Neck
+    add_box(&mut verts, &mut faces, 0.0, 0.5, 0.0, 0.1, 0.3, 0.1);
+    // Cork
+    add_box(&mut verts, &mut faces, 0.0, 0.85, 0.0, 0.12, 0.08, 0.12);
+    Mesh { vertices: verts, faces }
+}

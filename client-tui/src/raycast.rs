@@ -213,67 +213,58 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
         }
     }
 
-    // Draw 3D mesh objects (monsters, items) on top of the raycasted scene
-    {
+    // Draw 3D mesh objects — ONLY when something is actually in the room
+    if !state.monsters_here.is_empty() {
         use crate::mesh3d::*;
 
         let time = state.frame as f64 * 0.05;
+        let mut mesh_buf: Vec<Vec<(char, [u8; 3])>> =
+            vec![vec![(' ', [0, 0, 0]); screen_w]; screen_h];
+        let mut mesh_zbuf: Vec<Vec<f64>> =
+            vec![vec![f64::MAX; screen_w]; screen_h];
 
-        // Detect if monsters are present from recent game log
-        let has_monsters = state.game_log.iter().rev().take(20)
-            .any(|l| l.contains("You see a") || l.contains("Combat!"));
+        // Render each monster with appropriate shape and color
+        let count = state.monsters_here.len();
+        for (i, monster_name) in state.monsters_here.iter().enumerate() {
+            let name_lower = monster_name.to_lowercase();
 
-        if has_monsters {
-            // Render a rotating monster in the center of the view
-            let monster = create_monster();
-            let mut mesh_buf: Vec<Vec<(char, [u8; 3])>> =
-                vec![vec![(' ', [0, 0, 0]); screen_w]; screen_h];
-            let mut mesh_zbuf: Vec<Vec<f64>> =
-                vec![vec![f64::MAX; screen_w]; screen_h];
+            // Pick mesh and color based on monster name
+            let (mesh, color, scale) = if name_lower.contains("skeleton") || name_lower.contains("boss") {
+                (create_skull(), [200u8, 200, 180], 1.2)
+            } else if name_lower.contains("spider") {
+                (create_diamond(), [100u8, 60, 120], 0.8) // purple-ish
+            } else if name_lower.contains("goblin") {
+                (create_monster(), [80u8, 180, 80], 0.9) // green
+            } else if name_lower.contains("rat") {
+                (create_cube(), [160u8, 140, 100], 0.5) // small brown
+            } else {
+                (create_monster(), [220u8, 80, 80], 1.0) // default red humanoid
+            };
 
-            render_mesh(
-                &mut mesh_buf,
-                &mut mesh_zbuf,
-                &monster,
-                (time * 0.3, time * 0.7, 0.0), // slow rotation
-                Vec3::new(0.0, -0.2, 5.0),      // center, 5 units away
-                1.0,
-                [220, 80, 80], // red-ish monster
-            );
-
-            // Composite mesh onto raycasted scene
-            for y in 0..screen_h {
-                for x in 0..screen_w {
-                    if mesh_buf[y][x].0 != ' ' {
-                        let [r, g, b] = mesh_buf[y][x].1;
-                        buf[y][x] = (mesh_buf[y][x].0, Color::Rgb(r, g, b), Color::Reset);
-                    }
-                }
-            }
-        } else {
-            // No monsters — show a slowly rotating diamond/gem as ambient decoration
-            let diamond = create_diamond();
-            let mut mesh_buf: Vec<Vec<(char, [u8; 3])>> =
-                vec![vec![(' ', [0, 0, 0]); screen_w]; screen_h];
-            let mut mesh_zbuf: Vec<Vec<f64>> =
-                vec![vec![f64::MAX; screen_w]; screen_h];
+            // Offset each monster so multiple don't overlap
+            let x_offset = if count > 1 {
+                (i as f64 - (count as f64 - 1.0) / 2.0) * 2.5
+            } else {
+                0.0
+            };
 
             render_mesh(
                 &mut mesh_buf,
                 &mut mesh_zbuf,
-                &diamond,
-                (time * 0.5, time, time * 0.3),
-                Vec3::new(0.0, 0.0, 6.0),
-                0.6,
-                [80, 200, 220], // cyan gem
+                &mesh,
+                (time * 0.2, time * 0.5, 0.0),
+                Vec3::new(x_offset, -0.2, 5.0),
+                scale,
+                color,
             );
+        }
 
-            for y in 0..screen_h {
-                for x in 0..screen_w {
-                    if mesh_buf[y][x].0 != ' ' {
-                        let [r, g, b] = mesh_buf[y][x].1;
-                        buf[y][x] = (mesh_buf[y][x].0, Color::Rgb(r, g, b), Color::Reset);
-                    }
+        // Composite onto raycasted scene
+        for y in 0..screen_h {
+            for x in 0..screen_w {
+                if mesh_buf[y][x].0 != ' ' {
+                    let [r, g, b] = mesh_buf[y][x].1;
+                    buf[y][x] = (mesh_buf[y][x].0, Color::Rgb(r, g, b), Color::Reset);
                 }
             }
         }

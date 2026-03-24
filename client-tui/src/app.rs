@@ -107,6 +107,8 @@ pub struct GameState {
     pub room_connections: HashMap<(String, String), String>,
     /// Last movement direction (set when a move command is sent, before MoveOk response).
     pub last_move_direction: Option<String>,
+    /// Monsters visible in current room.
+    pub monsters_here: Vec<String>,
     /// Scroll offset for game log (0 = bottom).
     pub log_scroll: u16,
     /// Frame counter for animations.
@@ -143,6 +145,7 @@ impl GameState {
             explored_rooms: HashMap::new(),
             room_connections: HashMap::new(),
             last_move_direction: None,
+            monsters_here: Vec::new(),
             log_scroll: 0,
             frame: 0,
         }
