@@ -1,7 +1,11 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use protocol::auth::{ClientMsg, ServerMsg};
 use protocol::codec::{decode_message, encode_message};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::sync::RwLock;
 
 /// A test server started on a random OS-assigned port backed by a temporary in-memory SQLite DB.
 ///
@@ -29,9 +33,16 @@ impl TestServer {
             .await
             .expect("failed to init test database");
 
+        // Build a minimal world for testing — no zones loaded, empty world.
+        // Integration tests exercise auth; world commands are tested in plan 02-03.
+        let world = Arc::new(RwLock::new(server::world::types::World::default()));
+        let room_channels = Arc::new(RwLock::new(HashMap::new()));
+
         let state = server::net::listener::AppState {
             db: pool,
             session_ttl_secs: 3600,
+            world,
+            room_channels,
         };
 
         // Bind to port 0 to get an OS-assigned free port, record the address,
