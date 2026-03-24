@@ -1,0 +1,91 @@
+zone_id = "starting_village"
+zone_name = "Briarhollow Village"
+
+[[rooms]]
+id = "starting_village:market_square"
+name = "Briarhollow Market Square"
+description = """
+A broad cobblestone square ringed by timber-framed shops and a stone well at its center. \
+Faded banners flutter from the eaves, bearing the crest of a stag rampant. \
+The air smells of fresh bread and old iron. Paths lead north toward the tavern, \
+east to the village gate, and south into a shadowed alley."""
+lore = """
+The stag crest belongs to House Aldric, once the lords of this valley. Their line \
+ended during the Sundering when the last lord rode into the deep dungeon and never returned."""
+hints = [
+    "You can look around with LOOK, or examine something with EXAMINE <target>.",
+    "Paths lead north, east, and south. Type N, E, or S to move.",
+]
+
+[rooms.exits]
+north = "starting_village:tavern"
+east = "starting_village:village_gate"
+south = "starting_village:alley"
+
+[[rooms.triggers]]
+command = "examine well"
+effects = [
+    { kind = "message", text = "You peer into the well. The water is dark and still. Coins glint at the bottom — wishes made and forgotten." },
+]
+
+[[rooms]]
+id = "starting_village:tavern"
+name = "The Stag's Rest Tavern"
+description = """
+A low-ceilinged common room thick with hearth smoke and the murmur of conversation. \
+Rough oak tables are scarred by years of tankards and dice. A barkeep polishes a glass \
+behind the counter. The door south leads back to the market square."""
+lore = "A faded map on the wall shows tunnels beneath Briarhollow — the old dungeon entrance, sealed for a generation."
+hints = [
+    "You can EXAMINE the map on the wall.",
+]
+
+[rooms.exits]
+south = "starting_village:market_square"
+
+[[rooms.triggers]]
+command = "examine map"
+effects = [
+    { kind = "message", text = "The map is hand-drawn on yellowed parchment. It shows a network of tunnels radiating from a central chamber marked 'KEEP OUT' in bold red letters." },
+]
+
+[[rooms]]
+id = "starting_village:village_gate"
+name = "The Eastern Gate"
+description = """
+A sturdy wooden gate flanked by moss-covered stone pillars. Beyond the gate, a dirt road \
+winds through farmland toward distant hills. A rusted lever protrudes from the left pillar. \
+The market square lies to the west."""
+hints = [
+    "Try interacting with things — some objects respond to commands like PULL LEVER.",
+]
+
+[rooms.exits]
+west = "starting_village:market_square"
+
+[[rooms.triggers]]
+command = "pull lever"
+condition = { key = "gate_lever", value = "false" }
+effects = [
+    { kind = "set_state", key = "gate_lever", value = "true" },
+    { kind = "broadcast", text = "{player} pulls the rusted lever. Ancient gears grind and a portcullis rises with a screech of iron." },
+    { kind = "message", text = "The lever resists, then gives. The portcullis rises with a deafening screech." },
+]
+
+[[rooms]]
+id = "starting_village:alley"
+name = "Shadowed Alley"
+description = """
+A narrow passage between leaning buildings, paved with cracked flagstones. \
+Rats scurry in the gutters. A faint draft carries the scent of earth and stone \
+from a grate set into the ground. The market square is back to the north."""
+lore = "The grate covers an old drainage tunnel. Locals whisper it connects to the sealed dungeon beneath Briarhollow."
+
+[rooms.exits]
+north = "starting_village:market_square"
+
+[[rooms.triggers]]
+command = "examine grate"
+effects = [
+    { kind = "message", text = "The iron grate is bolted shut, but the bolts are corroded. With the right tools, it could be forced open. Not today, though." },
+]
