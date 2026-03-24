@@ -1090,6 +1090,7 @@ impl ConnectionActor {
                 let dex_score = self.load_character_dex(&character_id).await;
                 let dex_mod = crate::character::types::ability_modifier(dex_score);
 
+                let monster_id_for_action = monster_id.clone();
                 let combatants = vec![
                     CombatantInfo {
                         id: CombatantId::Player(character_id.clone()),
@@ -1105,7 +1106,18 @@ impl ConnectionActor {
 
                 let names = {
                     let mut mgr = self.state.combat_manager.write().await;
-                    mgr.start_combat(room_id.clone(), combatants)
+                    let names = mgr.start_combat(room_id.clone(), combatants);
+
+                    // Auto-queue the player's counterattack against the aggro monster
+                    mgr.queue_action(
+                        room_id,
+                        CombatantId::Player(character_id.clone()),
+                        CombatAction::Attack {
+                            target: CombatantId::Monster(monster_id_for_action),
+                        },
+                    );
+
+                    names
                 }; // mgr dropped here
 
                 // Send CombatStart to player

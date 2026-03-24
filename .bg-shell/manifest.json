@@ -1,16 +1,16 @@
 [
   {
-    "id": "83c7489c",
+    "id": "a15f1f36",
     "label": "MUT Server",
     "command": "cd /Users/REDACTED/code/mut_remastered/server && cargo run 2>&1",
     "cwd": "/Users/REDACTED/code/mut_remastered",
     "ownerSessionFile": "/Users/REDACTED/.gsd/sessions/--Users-REDACTED-code-mut_remastered--/2026-03-24T02-09-39-296Z_4494f961-64fd-4ebe-9233-20cdf291a34e.jsonl",
     "persistAcrossSessions": false,
-    "startedAt": 1774327584987,
+    "startedAt": 1774327754198,
     "processType": "server",
     "group": "mut",
     "readyPattern": "listening",
     "readyPort": null,
-    "pid": 41941
+    "pid": 42344
   }
 ]

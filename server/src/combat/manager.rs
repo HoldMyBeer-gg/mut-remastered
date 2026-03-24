@@ -128,25 +128,44 @@ impl CombatManager {
                 let action = match action {
                     Some(a) => a,
                     None => {
-                        // Monster with no target: pick first player
-                        if let CombatantId::Monster(_) = &combatant.id {
-                            let first_player = combat.combatants.iter().find_map(|c| {
-                                if let CombatantId::Player(id) = &c.id {
-                                    Some(CombatantId::Player(id.clone()))
+                        // No queued action and no last target — pick a target automatically
+                        match &combatant.id {
+                            CombatantId::Monster(_) => {
+                                // Monster auto-targets first player
+                                let first_player = combat.combatants.iter().find_map(|c| {
+                                    if let CombatantId::Player(id) = &c.id {
+                                        Some(CombatantId::Player(id.clone()))
+                                    } else {
+                                        None
+                                    }
+                                });
+                                if let Some(target) = first_player {
+                                    combat
+                                        .last_targets
+                                        .insert(combatant.id.clone(), target.clone());
+                                    CombatAction::Attack { target }
                                 } else {
-                                    None
+                                    continue;
                                 }
-                            });
-                            if let Some(target) = first_player {
-                                combat
-                                    .last_targets
-                                    .insert(combatant.id.clone(), target.clone());
-                                CombatAction::Attack { target }
-                            } else {
-                                continue;
                             }
-                        } else {
-                            continue; // Player with no action: skip
+                            CombatantId::Player(_) => {
+                                // Player auto-targets first monster
+                                let first_monster = combat.combatants.iter().find_map(|c| {
+                                    if let CombatantId::Monster(id) = &c.id {
+                                        Some(CombatantId::Monster(id.clone()))
+                                    } else {
+                                        None
+                                    }
+                                });
+                                if let Some(target) = first_monster {
+                                    combat
+                                        .last_targets
+                                        .insert(combatant.id.clone(), target.clone());
+                                    CombatAction::Attack { target }
+                                } else {
+                                    continue;
+                                }
+                            }
                         }
                     }
                 };
