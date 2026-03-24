@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 01-server-foundation 01-01-PLAN.md
-last_updated: "2026-03-24T00:40:48.751Z"
+stopped_at: Completed 01-server-foundation 01-02-PLAN.md
+last_updated: "2026-03-24T00:45:43.776Z"
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 01 (server-foundation) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Plan: 2 of 3
 
 *Updated after each plan completion*
 | Phase 01-server-foundation P01 | 2 | 2 tasks | 13 files |
+| Phase 01-server-foundation P02 | 3 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Recent decisions affecting current work:
 - [Init]: Web armory (ARMR-01-03) deferred to v2 — character schema must stabilize before SvelteKit/Threlte stack is introduced
 - [Init]: Phase 6 (Browser Client) depends on Phase 5 (Chat) being stable — xterm.js renders server ANSI output directly
 - [Phase 01-server-foundation]: 01-01: postcard replaces bincode (RUSTSEC-2025-0141); 4-byte LE length prefix for TCP framing; UUID session tokens over JWT for Phase 1 TCP sessions; WAL mode on SQLite pool
+- [Phase 01-server-foundation]: Argon2 spawn_blocking: Argon2id is CPU/memory-intensive; always call via spawn_blocking to avoid blocking Tokio async thread pool
+- [Phase 01-server-foundation]: delete_session in both Logout handler and cleanup(): AUTH-08 requires session invalidation on explicit logout AND on connection drop/crash
 
 ### Pending Todos
 
@@ -73,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T00:40:48.749Z
-Stopped at: Completed 01-server-foundation 01-01-PLAN.md
+Last session: 2026-03-24T00:45:43.773Z
+Stopped at: Completed 01-server-foundation 01-02-PLAN.md
 Resume file: None

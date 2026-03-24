@@ -10,13 +10,13 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Authentication
 
 - [x] **AUTH-01**: User can create an account with username and hashed password
-- [ ] **AUTH-02**: User can log in and receive a persistent session
+- [x] **AUTH-02**: User can log in and receive a persistent session
 - [ ] **AUTH-03**: User can create multiple characters per account
 - [ ] **AUTH-04**: User can select character race from available races
 - [ ] **AUTH-05**: User can select character class from 4-6 available classes
 - [ ] **AUTH-06**: User can allocate 6 ability scores (STR/DEX/CON/INT/WIS/CHA)
 - [ ] **AUTH-07**: User can select character gender (male/female/non-binary)
-- [ ] **AUTH-08**: User can log out cleanly with automatic save
+- [x] **AUTH-08**: User can log out cleanly with automatic save
 
 ### World
 
@@ -69,7 +69,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Networking
 
-- [ ] **NETW-01**: Game server handles multiple concurrent player connections via TCP
+- [x] **NETW-01**: Game server handles multiple concurrent player connections via TCP
 - [ ] **NETW-02**: Game server handles WebSocket connections for browser clients
 - [ ] **NETW-03**: Browser-based TUI client via xterm.js has feature parity with native client
 - [x] **NETW-04**: Shared protocol crate ensures message consistency between native and web clients
@@ -126,9 +126,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | AUTH-01 | Phase 1 | Complete |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-08 | Phase 1 | Pending |
-| NETW-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-08 | Phase 1 | Complete |
+| NETW-01 | Phase 1 | Complete |
 | NETW-04 | Phase 1 | Complete |
 | WRLD-01 | Phase 2 | Pending |
 | WRLD-02 | Phase 2 | Pending |

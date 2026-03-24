@@ -32,10 +32,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A player can log out cleanly and their session is invalidated
   4. Multiple players can connect simultaneously over TCP without one player's actions blocking another
   5. Native and web clients share a single compiled protocol crate — a message type change in the server produces a compile error in both clients
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 Plans:
 - [x] 01-01-PLAN.md — Cargo workspace scaffold, protocol crate with message types and codec, SQLite schema and server entry point
-- [ ] 01-02-PLAN.md — Auth module (Argon2id hashing, session management), TCP listener, and connection actor
+- [x] 01-02-PLAN.md — Auth module (Argon2id hashing, session management), TCP listener, and connection actor
 - [ ] 01-03-PLAN.md — Integration tests validating all Phase 1 requirements end-to-end
 
 ### Phase 2: World and Movement
@@ -117,7 +117,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Server Foundation | 0/3 | Planned | - |
+| 1. Server Foundation | 2/3 | In Progress|  |
 | 2. World and Movement | 0/? | Not started | - |
 | 3. Character and Combat | 0/? | Not started | - |
 | 4. Native TUI Client | 0/? | Not started | - |
