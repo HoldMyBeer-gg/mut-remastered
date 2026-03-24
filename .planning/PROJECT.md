@@ -12,11 +12,14 @@ Players can explore a shared persistent dungeon world together through a beautif
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Persistent game server that maintains world state across sessions — Validated in Phase 01: Server Foundation (SQLite-backed accounts/sessions, server starts and applies migrations)
+- [x] Secure account creation with Argon2id password hashing — Validated in Phase 01: Server Foundation (AUTH-01)
+- [x] Session-based authentication with login/logout — Validated in Phase 01: Server Foundation (AUTH-02, AUTH-08)
+- [x] Concurrent TCP connections without blocking — Validated in Phase 01: Server Foundation (NETW-01, 10 concurrent connections tested)
+- [x] Shared protocol crate with compile-time type safety — Validated in Phase 01: Server Foundation (NETW-04)
 
 ### Active
 
-- [ ] Persistent game server that maintains world state across sessions
 - [ ] Rich Unicode TUI client (Ratatui) compatible with iTerm2 and xterm
 - [ ] Browser-based TUI client (xterm.js) with same capabilities as native client
 - [ ] Web app launcher/hub for account management and server connection
@@ -61,7 +64,7 @@ Players can explore a shared persistent dungeon world together through a beautif
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Rust for server + native client | Performance, safety, Ratatui ecosystem | — Pending |
+| Rust for server + native client | Performance, safety, Ratatui ecosystem | Validated (Phase 01) |
 | Rich Unicode TUI over GPU 3D | Terminal compatibility (iTerm2/xterm) | — Pending |
 | Dual client (native + web) | Player choice, accessibility | — Pending |
 | Persistent world over sessions | Social/exploration focus needs continuity | — Pending |
@@ -86,4 +89,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-23 after initialization*
+*Last updated: 2026-03-24 after Phase 01 completion — server foundation verified with 8 passing integration tests*
