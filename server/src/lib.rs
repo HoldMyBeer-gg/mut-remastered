@@ -9,6 +9,7 @@ pub mod character;
 pub mod combat;
 pub mod config;
 pub mod db;
+pub mod dungeon;
 pub mod inventory;
 pub mod net;
 pub mod session;
