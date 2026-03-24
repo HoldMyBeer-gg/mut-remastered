@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-24T00:58:35.528Z"
+status: Ready to execute
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-24T01:30:23.321Z"
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Players can explore a shared persistent dungeon world together through a beautiful terminal interface — social interaction and exploration come first, combat second.
-**Current focus:** Phase 01 — server-foundation
+**Current focus:** Phase 02 — world-and-movement
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 02 (world-and-movement) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Plan: Not started
 | Phase 01-server-foundation P01 | 2 | 2 tasks | 13 files |
 | Phase 01-server-foundation P02 | 3 | 2 tasks | 9 files |
 | Phase 01-server-foundation P03 | 2min | 2 tasks | 6 files |
+| Phase 02-world-and-movement P01 | 2 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 01-server-foundation]: delete_session in both Logout handler and cleanup(): AUTH-08 requires session invalidation on explicit logout AND on connection drop/crash
 - [Phase 01-server-foundation]: lib.rs + main.rs split for integration test access: Rust integration tests need pub mod re-exports in a lib target; main.rs uses server:: paths from lib.rs
 - [Phase 01-server-foundation]: In-memory SQLite per test: sqlite:file:testdb_UUID?mode=memory&cache=shared isolates each TestServer run without temp file cleanup
+- [Phase 02-world-and-movement]: Loader fully implemented in Task 1 upfront (not stubbed): mod.rs references loader so it must compile cleanly; full implementation avoids two-step approach
+- [Phase 02-world-and-movement]: TriggerEffect uses serde tag=kind + rename_all=snake_case to match TOML inline-table syntax {kind=set_state, ...}
+- [Phase 02-world-and-movement]: Room IDs are zone-prefixed strings (zone_id:room_slug); ZoneFile struct is private to loader — only World is exposed
 
 ### Pending Todos
 
@@ -79,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T00:58:35.520Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-world-and-movement/02-CONTEXT.md
+Last session: 2026-03-24T01:30:23.319Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None
