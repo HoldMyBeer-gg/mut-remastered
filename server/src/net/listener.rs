@@ -1,16 +1,25 @@
+use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use sqlx::SqlitePool;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::{RwLock, broadcast};
 use tracing::{info, warn};
 
 use crate::session::actor::ConnectionActor;
+use crate::world::types::{RoomId, World, WorldEvent};
 
 /// Shared application state cloned per connection.
 #[derive(Clone)]
 pub struct AppState {
     pub db: SqlitePool,
     pub session_ttl_secs: i64,
+    /// In-memory world: rooms, room states, and player positions.
+    /// Read-locked for queries; write-locked only on mutations (move, trigger).
+    pub world: Arc<RwLock<World>>,
+    /// Per-room broadcast senders. Players subscribe on login/move; events sent on triggers/moves.
+    pub room_channels: Arc<RwLock<HashMap<RoomId, broadcast::Sender<WorldEvent>>>>,
 }
 
 /// Accept loop: binds TCP listener and spawns one independent task per connection.

@@ -3,6 +3,8 @@ pub struct ServerConfig {
     pub bind_addr: String,
     pub database_url: String,
     pub session_ttl_secs: i64,
+    /// Path to the directory containing zone subdirectories (each with a zone.toml).
+    pub worlds_dir: String,
 }
 
 impl ServerConfig {
@@ -16,6 +18,8 @@ impl ServerConfig {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(604800), // 7 days
+            worlds_dir: std::env::var("MUT_WORLDS_DIR")
+                .unwrap_or_else(|_| "../world/zones".to_string()),
         }
     }
 }

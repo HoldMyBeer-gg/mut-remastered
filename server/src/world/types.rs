@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +47,18 @@ impl Direction {
             Direction::West  => "west",
             Direction::Up    => "up",
             Direction::Down  => "down",
+        }
+    }
+
+    /// Return the opposite direction label (used in arrival broadcast messages).
+    pub fn opposite(&self) -> &'static str {
+        match self {
+            Direction::North => "south",
+            Direction::South => "north",
+            Direction::East  => "west",
+            Direction::West  => "east",
+            Direction::Up    => "below",
+            Direction::Down  => "above",
         }
     }
 }
