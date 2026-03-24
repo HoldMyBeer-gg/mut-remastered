@@ -114,9 +114,17 @@ async fn run_app(
     screen = AppScreen::Login(LoginState::new());
 
     loop {
-        // Increment animation frame counter
+        // Increment animation frame counter and advance camera
         if let AppScreen::InGame(ref mut state) = screen {
             state.frame += 1;
+            // Advance walk animation
+            if state.camera_animating {
+                state.camera_walk += 0.06; // ~1 second transition at 60fps
+                if state.camera_walk >= 1.0 {
+                    state.camera_walk = 1.0;
+                    state.camera_animating = false;
+                }
+            }
         }
 
         // Draw
@@ -129,7 +137,7 @@ async fn run_app(
 
         // Poll for events (input + server messages)
         // Use a short timeout to check server messages frequently
-        if event::poll(Duration::from_millis(50))? {
+        if event::poll(Duration::from_millis(16))? { // ~60fps
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind != KeyEventKind::Press {
@@ -768,6 +776,9 @@ async fn handle_server_message(
                                     from_room.clone(),
                                 );
                             }
+                            // Trigger walk animation
+                            state.camera_walk = 0.0;
+                            state.camera_animating = true;
                         }
                     }
                     protocol::world::ServerMsg::MoveFail { reason } => {

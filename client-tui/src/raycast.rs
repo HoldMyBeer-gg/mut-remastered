@@ -93,29 +93,53 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
     let grid = build_local_grid(&state.room_exits);
 
     // Player position and facing direction
+    // During walk animation, offset position forward to simulate movement
+    let walk_progress = state.camera_walk;
+    let walk_offset = if state.camera_animating {
+        // Ease-out: fast at start, slow at end
+        let t = 1.0 - (1.0 - walk_progress).powi(3);
+        t * 3.0 // Move forward up to 3 tiles during transition
+    } else {
+        0.0
+    };
+
+    // Head bob during walking
+    let time = state.frame as f64 * 0.1;
+    let head_bob = if state.camera_animating {
+        (time * 8.0).sin() * 0.15 * (1.0 - walk_progress) // Bob fades as you settle
+    } else {
+        (time * 1.5).sin() * 0.02 // Very subtle idle breathing
+    };
+
     let player_x: f64 = HALF as f64 + 0.5;
-    let player_y: f64 = HALF as f64 + 0.5;
-    // Face north by default (negative Y)
-    let dir_x: f64 = 0.0;
+    let player_y: f64 = HALF as f64 + 0.5 - walk_offset;
+    // Face north by default (negative Y), with slight sway
+    let sway = if state.camera_animating {
+        (time * 6.0).sin() * 0.03 * (1.0 - walk_progress)
+    } else {
+        0.0
+    };
+    let dir_x: f64 = sway;
     let dir_y: f64 = -1.0;
     // Camera plane (perpendicular to direction)
     let plane_x: f64 = 0.66;
-    let plane_y: f64 = 0.0;
+    let plane_y: f64 = sway * 0.3;
 
     // Character buffer
     let mut buf: Vec<Vec<(char, Color, Color)>> =
         vec![vec![(' ', Color::Reset, Color::Reset); screen_w]; screen_h];
 
-    // Draw ceiling and floor background
+    // Draw ceiling and floor background with head bob offset
+    let horizon = (screen_h as f64 / 2.0 + head_bob * screen_h as f64) as usize;
     for y in 0..screen_h {
         for x in 0..screen_w {
-            if y < screen_h / 2 {
+            if y < horizon {
                 // Ceiling — dark gradient
                 let brightness = 15 + (y as u8 * 2).min(30);
                 buf[y][x] = (' ', Color::Reset, Color::Rgb(brightness, brightness, brightness + 10));
             } else {
                 // Floor — brown gradient
-                let dist = (y - screen_h / 2) as u8;
+                let dist = (y - horizon) as u8;
                 let brightness = 25 + dist.min(40);
                 buf[y][x] = (' ', Color::Reset, Color::Rgb(brightness, brightness / 2 + 10, brightness / 3));
             }
@@ -200,8 +224,9 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
 
         // Calculate wall column height
         let line_height = (screen_h as f64 / perp_wall_dist) as i32;
-        let draw_start = (-(line_height) / 2 + screen_h as i32 / 2).max(0) as usize;
-        let draw_end = ((line_height) / 2 + screen_h as i32 / 2).min(screen_h as i32 - 1) as usize;
+        let horizon_i32 = horizon as i32;
+        let draw_start = (-(line_height) / 2 + horizon_i32).max(0) as usize;
+        let draw_end = ((line_height) / 2 + horizon_i32).min(screen_h as i32 - 1) as usize;
 
         // Choose wall character and color based on distance and side
         let (ch, color) = wall_shade(perp_wall_dist, side);

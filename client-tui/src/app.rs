@@ -113,6 +113,14 @@ pub struct GameState {
     pub log_scroll: u16,
     /// Frame counter for animations.
     pub frame: u64,
+    /// Camera facing direction in radians (0 = north, smoothly interpolated).
+    pub camera_angle: f64,
+    /// Target camera angle (set on room change based on entry direction).
+    pub camera_target_angle: f64,
+    /// Camera "walk" animation progress (0.0 = just entered, 1.0 = settled).
+    pub camera_walk: f64,
+    /// Whether camera is currently animating a transition.
+    pub camera_animating: bool,
     /// Whether we're currently in combat.
     pub in_combat: bool,
     /// Current combat round number.
@@ -154,6 +162,10 @@ impl GameState {
             monsters_here: Vec::new(),
             log_scroll: 0,
             frame: 0,
+            camera_angle: 0.0,
+            camera_target_angle: 0.0,
+            camera_walk: 1.0,
+            camera_animating: false,
             in_combat: false,
             combat_round: 0,
             last_round_frame: 0,
