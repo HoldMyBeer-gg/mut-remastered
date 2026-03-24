@@ -222,36 +222,68 @@ fn render_char_create(f: &mut Frame, state: &CharSelectState) {
 pub fn render_game(f: &mut Frame, state: &GameState) {
     let area = f.area();
 
-    // Main layout: top section (room + minimap), game log, vitals bar, input
+    // Main layout: menu bar, top section (room + map), game log, vitals bar, input
     let main_chunks = Layout::vertical([
-        Constraint::Percentage(35), // room + minimap
+        Constraint::Length(1),       // menu bar
+        Constraint::Percentage(30),  // room + map
         Constraint::Min(5),          // game log
         Constraint::Length(2),       // vitals bar
         Constraint::Length(3),       // input
     ])
     .split(area);
 
+    // Menu bar
+    render_menu_bar(f, main_chunks[0]);
+
     // Top section: room description (left 50%) + dungeon map (right 50%)
     let top_chunks = Layout::horizontal([
         Constraint::Percentage(50),
         Constraint::Percentage(50),
     ])
-    .split(main_chunks[0]);
+    .split(main_chunks[1]);
 
     // Room description pane
     render_room_pane(f, state, top_chunks[0]);
 
-    // Dungeon map pane (replaces compass)
+    // Dungeon map pane
     crate::map::render_map(f, state, top_chunks[1]);
 
     // Game log
-    render_game_log(f, state, main_chunks[1]);
+    render_game_log(f, state, main_chunks[2]);
 
     // Vitals bar
-    render_vitals(f, state, main_chunks[2]);
+    render_vitals(f, state, main_chunks[3]);
 
     // Input line
-    render_input(f, state, main_chunks[3]);
+    render_input(f, state, main_chunks[4]);
+}
+
+fn render_menu_bar(f: &mut Frame, area: Rect) {
+    let menu = Line::from(vec![
+        Span::styled(" ⚔ MUT ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::styled("│", Style::default().fg(Color::DarkGray)),
+        Span::styled(" F1", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(":Help ", Style::default().fg(Color::Gray)),
+        Span::styled("│", Style::default().fg(Color::DarkGray)),
+        Span::styled(" Tab", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(":Stats ", Style::default().fg(Color::Gray)),
+        Span::styled("│", Style::default().fg(Color::DarkGray)),
+        Span::styled(" PgUp/Dn", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(":Scroll ", Style::default().fg(Color::Gray)),
+        Span::styled("│", Style::default().fg(Color::DarkGray)),
+        Span::styled(" ↑↓", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(":History ", Style::default().fg(Color::Gray)),
+        Span::styled("│", Style::default().fg(Color::DarkGray)),
+        Span::styled(" 🖱Scroll", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(":Log ", Style::default().fg(Color::Gray)),
+        Span::styled("│", Style::default().fg(Color::DarkGray)),
+        Span::styled(" Ctrl-C", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(":Quit ", Style::default().fg(Color::Gray)),
+    ]);
+
+    let bar = Paragraph::new(menu)
+        .style(Style::default().bg(Color::Rgb(20, 20, 40)));
+    f.render_widget(bar, area);
 }
 
 fn render_room_pane(f: &mut Frame, state: &GameState, area: Rect) {

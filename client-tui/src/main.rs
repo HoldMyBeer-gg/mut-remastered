@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    execute!(stdout, EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Restore terminal
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, crossterm::event::DisableMouseCapture)?;
     terminal.show_cursor()?;
 
     if let Err(e) = result {
@@ -122,36 +122,52 @@ async fn run_app(
         // Poll for events (input + server messages)
         // Use a short timeout to check server messages frequently
         if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
+            match event::read()? {
+                Event::Key(key) => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
 
-                // Global quit: Ctrl-C
-                if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c')
-                {
-                    break;
-                }
+                    // Global quit: Ctrl-C
+                    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c')
+                    {
+                        break;
+                    }
 
-                match &mut screen {
-                    AppScreen::Login(state) => {
-                        handle_login_input(key.code, state, &client_tx).await;
-                        if key.code == KeyCode::Esc {
-                            break;
+                    match &mut screen {
+                        AppScreen::Login(state) => {
+                            handle_login_input(key.code, state, &client_tx).await;
+                            if key.code == KeyCode::Esc {
+                                break;
+                            }
+                        }
+                        AppScreen::CharacterSelect(state) => {
+                            let action =
+                                handle_char_select_input(key.code, state, &client_tx).await;
+                            if action == CharSelectAction::Quit {
+                                break;
+                            }
+                        }
+                        AppScreen::InGame(state) => {
+                            handle_game_input(key.code, state, &client_tx).await;
+                        }
+                        _ => {}
+                    }
+                }
+                Event::Mouse(mouse) => {
+                    if let AppScreen::InGame(state) = &mut screen {
+                        match mouse.kind {
+                            crossterm::event::MouseEventKind::ScrollUp => {
+                                state.log_scroll = state.log_scroll.saturating_add(3);
+                            }
+                            crossterm::event::MouseEventKind::ScrollDown => {
+                                state.log_scroll = state.log_scroll.saturating_sub(3);
+                            }
+                            _ => {}
                         }
                     }
-                    AppScreen::CharacterSelect(state) => {
-                        let action =
-                            handle_char_select_input(key.code, state, &client_tx).await;
-                        if action == CharSelectAction::Quit {
-                            break;
-                        }
-                    }
-                    AppScreen::InGame(state) => {
-                        handle_game_input(key.code, state, &client_tx).await;
-                    }
-                    _ => {}
                 }
+                _ => {}
             }
         }
 
@@ -464,6 +480,23 @@ async fn handle_game_input(
         }
         KeyCode::PageDown => {
             state.log_scroll = state.log_scroll.saturating_sub(5);
+        }
+        KeyCode::F(1) => {
+            // F1 = Help (same as typing "help")
+            state.log("".to_string());
+            state.log("═══ MUT Remastered — Commands ═══".to_string());
+            state.log("".to_string());
+            state.log("── Movement: n s e w u d | look | examine <thing>".to_string());
+            state.log("── Combat:   attack <target> | flee".to_string());
+            state.log("── Items:    inv | get <item> | drop <item> | equip <item> | unequip <slot>".to_string());
+            state.log("── Social:   say <text> | gossip <text> | emote <text> | whisper <who> <text>".to_string());
+            state.log("── Info:     stats | bio <text> | desc <text> | lookat <player>".to_string());
+            state.log("── Other:    help | toggle <channel> | quit".to_string());
+            state.log("═════════════════════════════════════".to_string());
+        }
+        KeyCode::Tab => {
+            // Tab = quick Stats
+            parse_and_send_command("stats", tx).await;
         }
         _ => {}
     }
