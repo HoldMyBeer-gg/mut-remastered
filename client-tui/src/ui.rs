@@ -428,20 +428,49 @@ fn render_game_log(f: &mut Frame, state: &GameState, area: Rect) {
 }
 
 fn render_vitals(f: &mut Frame, state: &GameState, area: Rect) {
+    let combat_label = if state.in_combat {
+        // Calculate GCD countdown: 4 seconds total, ~20 frames per second (50ms poll)
+        let frames_per_round = 80u64; // 4 seconds * 20fps
+        let frames_since_round = state.frame.saturating_sub(state.last_round_frame);
+        let remaining = frames_per_round.saturating_sub(frames_since_round);
+        let secs = (remaining as f64 / 20.0).max(0.0);
+        format!(" ⚔ COMBAT Rd {} — Next: {:.1}s ", state.combat_round, secs)
+    } else {
+        String::new()
+    };
+
+    let title = if state.in_combat {
+        format!(" {} — Lv {} —{}", state.character_name, state.level, combat_label)
+    } else {
+        format!(" {} — Lv {} — XP: {} ", state.character_name, state.level, state.xp)
+    };
+
+    let title_color = if state.in_combat { Color::Red } else { Color::Cyan };
+
     let block = Block::new()
         .borders(Borders::TOP)
         .border_style(Style::default().fg(Color::DarkGray))
-        .title(format!(" {} — Lv {} — XP: {} ", state.character_name, state.level, state.xp))
-        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+        .title(title)
+        .title_style(Style::default().fg(title_color).add_modifier(Modifier::BOLD));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    let bar_chunks = Layout::horizontal([
-        Constraint::Percentage(33),
-        Constraint::Percentage(33),
-        Constraint::Percentage(34),
-    ])
-    .split(inner);
+    let bar_chunks = if state.in_combat {
+        Layout::horizontal([
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+        ])
+        .split(inner)
+    } else {
+        Layout::horizontal([
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+            Constraint::Percentage(34),
+        ])
+        .split(inner)
+    };
 
     // HP bar
     let hp_ratio = if state.max_hp > 0 { state.hp as f64 / state.max_hp as f64 } else { 0.0 };
@@ -476,6 +505,23 @@ fn render_vitals(f: &mut Frame, state: &GameState, area: Rect) {
         ))
         .ratio(sp_ratio.clamp(0.0, 1.0));
     f.render_widget(sp_gauge, bar_chunks[2]);
+
+    // GCD timer bar (only during combat)
+    if state.in_combat && bar_chunks.len() > 3 {
+        let frames_per_round = 80u64;
+        let frames_since_round = state.frame.saturating_sub(state.last_round_frame);
+        let gcd_ratio = (frames_since_round as f64 / frames_per_round as f64).clamp(0.0, 1.0);
+
+        let gcd_color = if gcd_ratio > 0.8 { Color::Green } else if gcd_ratio > 0.5 { Color::Yellow } else { Color::Red };
+        let gcd_gauge = Gauge::default()
+            .gauge_style(Style::default().fg(gcd_color).bg(Color::Rgb(30, 30, 30)))
+            .label(Span::styled(
+                "⏱ GCD",
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            ))
+            .ratio(gcd_ratio);
+        f.render_widget(gcd_gauge, bar_chunks[3]);
+    }
 }
 
 fn render_input(f: &mut Frame, state: &GameState, area: Rect) {

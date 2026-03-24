@@ -35,4 +35,6 @@ pub enum ServerMsg {
     CombatEnd { result: String },
     /// A generic failure for combat/inventory actions.
     ActionFail { reason: String },
+    /// Round timer — seconds until next combat round resolves.
+    RoundTimer { seconds_remaining: f32, round: u32 },
 }

@@ -113,6 +113,12 @@ pub struct GameState {
     pub log_scroll: u16,
     /// Frame counter for animations.
     pub frame: u64,
+    /// Whether we're currently in combat.
+    pub in_combat: bool,
+    /// Current combat round number.
+    pub combat_round: u32,
+    /// Frame when last round resolved (for GCD countdown display).
+    pub last_round_frame: u64,
 }
 
 pub struct ExploredRoom {
@@ -148,6 +154,9 @@ impl GameState {
             monsters_here: Vec::new(),
             log_scroll: 0,
             frame: 0,
+            in_combat: false,
+            combat_round: 0,
+            last_round_frame: 0,
         }
     }
 

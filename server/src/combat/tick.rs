@@ -30,7 +30,7 @@ pub async fn combat_tick_loop(
     respawn_timers: Arc<RwLock<Vec<RespawnTimer>>>,
     db: SqlitePool,
 ) {
-    let mut interval = tokio::time::interval(Duration::from_secs(2));
+    let mut interval = tokio::time::interval(Duration::from_secs(4));
 
     loop {
         interval.tick().await;
@@ -160,7 +160,20 @@ pub async fn combat_tick_loop(
             }
         }
 
-        // 5. Process respawn timers
+        // 5b. Broadcast round timer to rooms with active combat
+        {
+            let mgr = combat_manager.read().await;
+            let channels = room_channels.read().await;
+            for (room_id, combat) in &mgr.combats {
+                if let Some(sender) = channels.get(room_id) {
+                    let _ = sender.send(WorldEvent {
+                        message: format!("⏱ Round {} complete. Next round in 4 seconds. Queue your action now! (/attack, /blast, /heal, /flee)", combat.round),
+                    });
+                }
+            }
+        }
+
+        // 6. Process respawn timers
         process_respawns(
             &respawn_timers,
             &active_monsters,

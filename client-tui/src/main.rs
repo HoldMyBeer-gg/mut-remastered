@@ -915,6 +915,9 @@ async fn handle_server_message(
                             "⚔ Combat! Combatants: {}",
                             combatants.join(", ")
                         ));
+                        state.in_combat = true;
+                        state.combat_round = 0;
+                        state.last_round_frame = state.frame;
                     }
                     protocol::combat::ServerMsg::CombatLog { entries } => {
                         for entry in entries {
@@ -923,12 +926,18 @@ async fn handle_server_message(
                     }
                     protocol::combat::ServerMsg::CombatEnd { result } => {
                         state.log(format!("🏁 {}", result));
+                        state.in_combat = false;
+                        state.combat_round = 0;
                         if result.contains("Victory") || result.contains("defeated") {
                             state.monsters_here.clear();
                         }
                     }
                     protocol::combat::ServerMsg::ActionFail { reason } => {
                         state.log(format!("⛔ {}", reason));
+                    }
+                    protocol::combat::ServerMsg::RoundTimer { seconds_remaining, round } => {
+                        state.combat_round = round;
+                        state.last_round_frame = state.frame;
                     }
                 }
             }
