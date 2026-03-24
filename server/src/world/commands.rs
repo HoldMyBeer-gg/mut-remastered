@@ -303,6 +303,8 @@ pub async fn handle_examine(
 pub async fn handle_interact(
     world: &Arc<RwLock<World>>,
     room_channels: &Arc<RwLock<HashMap<RoomId, broadcast::Sender<WorldEvent>>>>,
+    active_monsters: &Arc<RwLock<HashMap<RoomId, Vec<crate::combat::types::ActiveMonster>>>>,
+    monster_templates: &Arc<HashMap<String, crate::combat::types::MonsterTemplate>>,
     db: &SqlitePool,
     account_id: &str,
     command: &str,
@@ -317,7 +319,7 @@ pub async fn handle_interact(
         };
         if let Some(room_id) = current_room {
             if room_id.0.contains("dungeon_entrance") {
-                return generate_and_enter_dungeon(world, room_channels, db, account_id, &room_id).await;
+                return generate_and_enter_dungeon(world, room_channels, active_monsters, monster_templates, db, account_id, &room_id).await;
             }
         }
     }
@@ -520,6 +522,8 @@ async fn display_name(world: &Arc<RwLock<World>>, character_id: &str) -> String 
 async fn generate_and_enter_dungeon(
     world: &Arc<RwLock<World>>,
     room_channels: &Arc<RwLock<HashMap<RoomId, broadcast::Sender<WorldEvent>>>>,
+    active_monsters: &Arc<RwLock<HashMap<RoomId, Vec<crate::combat::types::ActiveMonster>>>>,
+    monster_templates: &Arc<HashMap<String, crate::combat::types::MonsterTemplate>>,
     db: &SqlitePool,
     character_id: &str,
     entrance_room_id: &RoomId,
@@ -581,6 +585,45 @@ async fn generate_and_enter_dungeon(
             if !channels.contains_key(&room_id) {
                 let (tx, _rx) = tokio::sync::broadcast::channel(32);
                 channels.insert(room_id, tx);
+            }
+        }
+    }
+
+    // Spawn monsters in dungeon rooms (skip entrance and boss room gets skeleton_guard)
+    {
+        // Pick monsters based on theme
+        let monster_pool: Vec<&str> = match &config.theme {
+            DungeonTheme::Crypt => vec!["skeleton_guard", "giant_rat"],
+            DungeonTheme::Cave => vec!["cave_spider", "giant_rat"],
+            DungeonTheme::Ruins => vec!["goblin_scout", "skeleton_guard"],
+            DungeonTheme::Sewer => vec!["giant_rat", "cave_spider"],
+        };
+
+        let mut monsters = active_monsters.write().await;
+        let mut rng = rand::rng();
+
+        for (i, room) in dungeon.rooms.iter().enumerate() {
+            if i == 0 { continue; } // Skip entrance room — safe zone
+
+            let room_id = RoomId(room.id.clone());
+            let is_boss_room = i == dungeon.rooms.len() - 1 && config.boss_room.is_some();
+
+            if is_boss_room {
+                // Boss room: spawn skeleton_guard
+                if let Some(template) = monster_templates.get("skeleton_guard") {
+                    let monster = crate::combat::types::ActiveMonster::from_template(template, &room_id);
+                    monsters.entry(room_id).or_default().push(monster);
+                }
+            } else if rng.random_range(0..100) < 60 {
+                // 60% chance of monsters in non-boss rooms
+                let template_id = monster_pool[rng.random_range(0..monster_pool.len())];
+                if let Some(template) = monster_templates.get(template_id) {
+                    let count = rng.random_range(1..=2);
+                    for _ in 0..count {
+                        let monster = crate::combat::types::ActiveMonster::from_template(template, &room_id);
+                        monsters.entry(room_id.clone()).or_default().push(monster);
+                    }
+                }
             }
         }
     }

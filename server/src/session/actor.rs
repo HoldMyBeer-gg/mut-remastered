@@ -379,6 +379,8 @@ impl ConnectionActor {
                     crate::world::commands::handle_interact(
                         &self.state.world,
                         &self.state.room_channels,
+                        &self.state.active_monsters,
+                        &self.state.monster_templates,
                         &self.state.db,
                         &character_id,
                         &command,
