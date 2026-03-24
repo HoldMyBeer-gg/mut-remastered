@@ -1,8 +1,11 @@
 mod auth;
 mod config;
 mod db;
+mod net;
+mod session;
 
 use config::ServerConfig;
+use net::listener::{AppState, run_listener};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -22,10 +25,14 @@ async fn main() -> anyhow::Result<()> {
     let db_pool = db::init_db(&config.database_url).await?;
     tracing::info!("database ready");
 
-    // TCP listener will be added in Plan 02
-    tracing::info!("server initialized (TCP listener not yet implemented)");
+    // Build shared application state
+    let state = AppState {
+        db: db_pool,
+        session_ttl_secs: config.session_ttl_secs,
+    };
 
-    // Keep pool alive for now; Plan 02 adds the accept loop
-    drop(db_pool);
+    // Start TCP accept loop — blocks until server shuts down
+    run_listener(&config.bind_addr, state).await?;
+
     Ok(())
 }
