@@ -48,7 +48,11 @@ Plans:
   3. A new player entering the newbie area receives guided prompts that explain movement and basic commands before entering the wider world
   4. Rooms contain readable lore text that rewards players who type "look" or examine environmental details
   5. A player action that should change world state (e.g., pulling a lever, clearing a blockage) is reflected for all players in that area
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 02-01-PLAN.md — Protocol world messages, world types, TOML zone data, SQLite migrations, and world loader
+- [ ] 02-02-PLAN.md — AppState extension, world command handlers (Look/Move/Examine/Interact), ConnectionActor with tokio::select! and room broadcast
+- [ ] 02-03-PLAN.md — Newbie tutorial zone content, test helpers extension, and integration tests for all WRLD requirements
 
 ### Phase 3: Character and Combat
 **Goal**: Players can create characters, fight monsters, collect gear, and die without losing progress
@@ -118,7 +122,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Server Foundation | 3/3 | Complete   | 2026-03-24 |
-| 2. World and Movement | 0/? | Not started | - |
+| 2. World and Movement | 0/3 | Planned | - |
 | 3. Character and Combat | 0/? | Not started | - |
 | 4. Native TUI Client | 0/? | Not started | - |
 | 5. Chat and Social | 0/? | Not started | - |
