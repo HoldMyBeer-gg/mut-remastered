@@ -120,11 +120,19 @@ west = "newbie:courtyard"
 
 [[rooms.triggers]]
 command = "pull lever"
+condition = { key = "lever_state", value = "false" }
 effects = [
     { kind = "set_state", key = "lever_state", value = "true" },
     { kind = "reveal_exit", direction = "south", target = "newbie:hidden_chamber" },
     { kind = "broadcast", text = "{player} pulls the iron lever. A deep mechanical groan echoes through the hall as hidden gears engage." },
     { kind = "message", text = "The lever moves stiffly, then gives with a satisfying clunk. Behind you, a section of the east wall grinds sideways on hidden rollers, revealing a low doorway. A faint smell of old parchment drifts out from the darkness beyond." },
+]
+
+[[rooms.triggers]]
+command = "pull lever"
+condition = { key = "lever_state", value = "true" }
+effects = [
+    { kind = "message", text = "The lever is already pulled. The hidden door to the south stands open." },
 ]
 
 [[rooms]]

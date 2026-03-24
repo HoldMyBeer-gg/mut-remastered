@@ -61,7 +61,12 @@ pub async fn handle_look(
         .player_positions
         .iter()
         .filter(|(id, pos)| id.as_str() != account_id && **pos == room_id)
-        .map(|(id, _)| id.clone())
+        .map(|(id, _)| {
+            w.player_names
+                .get(id.as_str())
+                .cloned()
+                .unwrap_or_else(|| id.clone())
+        })
         .collect();
 
     // Tutorial hints — only shown before tutorial is complete
@@ -179,7 +184,7 @@ pub async fn handle_move(
 
     // Persist position to SQLite (after lock is dropped)
     if let Err(e) = sqlx::query(
-        "INSERT OR REPLACE INTO player_positions (account_id, room_id, updated_at) VALUES (?, ?, unixepoch())"
+        "INSERT OR REPLACE INTO character_positions (character_id, room_id, updated_at) VALUES (?, ?, unixepoch())"
     )
     .bind(account_id)
     .bind(&to_room_id.0)
@@ -190,11 +195,12 @@ pub async fn handle_move(
     }
 
     // Broadcast departure to old room
+    let name = display_name(world, account_id).await;
     broadcast_to_room(
         room_channels,
         &from_room_id,
         WorldEvent {
-            message: format!("{} left to the {}.", account_id, exit_key),
+            message: format!("{} left to the {}.", name, exit_key),
         },
     )
     .await;
@@ -204,7 +210,7 @@ pub async fn handle_move(
         room_channels,
         &to_room_id,
         WorldEvent {
-            message: format!("{} arrived from the {}.", account_id, direction.opposite()),
+            message: format!("{} arrived from the {}.", name, direction.opposite()),
         },
     )
     .await;
@@ -375,7 +381,15 @@ pub async fn handle_interact(
                 responses.push(ServerMsg::InteractResult { text: text.clone() });
             }
             TriggerEffect::Broadcast { text } => {
-                let msg = text.replace("{player}", account_id);
+                // Look up character display name for {player} placeholder
+                let char_name = {
+                    let w = world.read().await;
+                    w.player_names
+                        .get(account_id)
+                        .cloned()
+                        .unwrap_or_else(|| account_id.to_string())
+                };
+                let msg = text.replace("{player}", &char_name);
                 broadcasts.push(msg);
             }
             TriggerEffect::SetState { key, value } => {
@@ -460,4 +474,13 @@ async fn broadcast_to_room(
         // send() errors only if there are no receivers — that's fine
         let _ = sender.send(event);
     }
+}
+
+/// Helper: look up the display name for a character_id (or fall back to the id itself).
+async fn display_name(world: &Arc<RwLock<World>>, character_id: &str) -> String {
+    let w = world.read().await;
+    w.player_names
+        .get(character_id)
+        .cloned()
+        .unwrap_or_else(|| character_id.to_string())
 }

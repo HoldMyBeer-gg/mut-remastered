@@ -135,8 +135,10 @@ pub struct World {
     pub rooms: HashMap<RoomId, RoomDef>,
     /// Per-room mutable runtime state (trigger flags, revealed exits).
     pub room_states: HashMap<RoomId, RoomState>,
-    /// Current room for each connected player (account_id -> room_id).
+    /// Current room for each connected player (character_id -> room_id).
     pub player_positions: HashMap<String, RoomId>,
+    /// Display names for connected players (character_id -> character_name).
+    pub player_names: HashMap<String, String>,
     /// Override the default spawn room for new players.
     ///
     /// When `Some`, new players are placed here instead of the compiled-in

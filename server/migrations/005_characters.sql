@@ -1,0 +1,26 @@
+CREATE TABLE characters (
+    id          TEXT PRIMARY KEY NOT NULL,
+    account_id  TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    name        TEXT UNIQUE NOT NULL COLLATE NOCASE,
+    race        TEXT NOT NULL,
+    class       TEXT NOT NULL,
+    gender      TEXT NOT NULL,
+    level       INTEGER NOT NULL DEFAULT 1,
+    xp          INTEGER NOT NULL DEFAULT 0,
+    hp          INTEGER NOT NULL,
+    max_hp      INTEGER NOT NULL,
+    mana        INTEGER NOT NULL,
+    max_mana    INTEGER NOT NULL,
+    stamina     INTEGER NOT NULL,
+    max_stamina INTEGER NOT NULL,
+    str_score   INTEGER NOT NULL,
+    dex_score   INTEGER NOT NULL,
+    con_score   INTEGER NOT NULL,
+    int_score   INTEGER NOT NULL,
+    wis_score   INTEGER NOT NULL,
+    cha_score   INTEGER NOT NULL,
+    bio         TEXT NOT NULL DEFAULT '',
+    bind_point  TEXT NOT NULL DEFAULT 'starting_village:market_square',
+    created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX idx_characters_account_id ON characters(account_id);

@@ -25,6 +25,7 @@ const MAX_MESSAGE_SIZE: usize = 64 * 1024; // 64 KiB
 /// (e.g., world::Examine at variant index 2), corrupting dispatch.
 pub const NS_AUTH: u8 = 0x01;
 pub const NS_WORLD: u8 = 0x02;
+pub const NS_CHAR: u8 = 0x03;
 
 /// Encode a message to bytes with a 4-byte LE length prefix and 1-byte namespace tag.
 ///

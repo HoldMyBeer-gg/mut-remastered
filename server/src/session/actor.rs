@@ -7,13 +7,15 @@ use tokio::{
 use tracing::{debug, warn};
 
 use protocol::auth::{ErrorCode, ServerMsg as AuthServerMsg};
-use protocol::codec::{decode_message, encode_message, NS_AUTH, NS_WORLD};
+use protocol::codec::{decode_message, encode_message, NS_AUTH, NS_CHAR, NS_WORLD};
 use protocol::world::ServerMsg as WorldServerMsg;
 
 use crate::auth::{
     hash::{hash_password, verify_password},
     session::{create_session, delete_session, lookup_account, register_account},
 };
+use crate::character::creation::{calculate_initial_stats, validate_name, validate_point_buy};
+use crate::character::types::{Class, Gender, Race};
 use crate::net::listener::AppState;
 use crate::world::types::{RoomId, WorldEvent};
 
@@ -39,6 +41,10 @@ pub struct ConnectionActor {
     session_token: Option<String>,
     /// None until the client successfully logs in.
     account_id: Option<String>,
+    /// Active character ID (set after CharacterSelect).
+    active_character_id: Option<String>,
+    /// Active character name (for display in room/broadcasts).
+    active_character_name: Option<String>,
     /// Subscription to the current room's broadcast channel.
     /// None when not logged in or room channel not found.
     room_receiver: Option<broadcast::Receiver<WorldEvent>>,
@@ -55,6 +61,8 @@ impl ConnectionActor {
             state,
             session_token: None,
             account_id: None,
+            active_character_id: None,
+            active_character_name: None,
             room_receiver: None,
             tutorial_complete: false,
         }
@@ -138,6 +146,9 @@ impl ConnectionActor {
         if let Ok(msg) = decode_message::<protocol::auth::ClientMsg>(NS_AUTH, bytes) {
             return self.handle_auth_message(msg).await;
         }
+        if let Ok(msg) = decode_message::<protocol::character::ClientMsg>(NS_CHAR, bytes) {
+            return self.handle_character_message(msg).await;
+        }
         if let Ok(msg) = decode_message::<protocol::world::ClientMsg>(NS_WORLD, bytes) {
             return self.handle_world_message(msg).await;
         }
@@ -218,12 +229,6 @@ impl ConnectionActor {
                             self.session_token = Some(token.clone());
                             self.account_id = Some(account_id.clone());
 
-                            // Place player in world if not already positioned
-                            self.ensure_player_in_world(&account_id).await;
-
-                            // Subscribe to room broadcast channel
-                            self.subscribe_to_current_room(&account_id).await;
-
                             // Load tutorial completion flag
                             self.tutorial_complete =
                                 self.load_tutorial_complete(&account_id).await;
@@ -232,6 +237,9 @@ impl ConnectionActor {
                                 session_token: token,
                             })
                             .await?;
+
+                            // NOTE: Player is NOT placed in world until CharacterSelect.
+                            // The client should send CharacterList then CharacterSelect.
                         }
                     }
                     Err(e) => {
@@ -246,6 +254,14 @@ impl ConnectionActor {
             }
 
             protocol::auth::ClientMsg::Logout => {
+                // Remove character from world
+                if let Some(char_id) = self.active_character_id.take() {
+                    let mut w = self.state.world.write().await;
+                    w.player_positions.remove(&char_id);
+                    w.player_names.remove(&char_id);
+                }
+                self.active_character_name = None;
+
                 if let Some(token) = self.session_token.take() {
                     if let Err(e) = delete_session(&self.state.db, &token).await {
                         warn!(error = %e, "delete_session failed on logout");
@@ -269,13 +285,13 @@ impl ConnectionActor {
         &mut self,
         msg: protocol::world::ClientMsg,
     ) -> anyhow::Result<()> {
-        // World commands require login
-        let account_id = match &self.account_id {
+        // World commands require login AND character selection
+        let character_id = match &self.active_character_id {
             Some(id) => id.clone(),
             None => {
                 self.send_auth(AuthServerMsg::Error {
                     code: ErrorCode::SessionExpired,
-                    message: "you must log in first".to_string(),
+                    message: "you must select a character first".to_string(),
                 })
                 .await?;
                 return Ok(());
@@ -286,7 +302,7 @@ impl ConnectionActor {
             protocol::world::ClientMsg::Look => {
                 let resp = crate::world::commands::handle_look(
                     &self.state.world,
-                    &account_id,
+                    &character_id,
                     self.tutorial_complete,
                 )
                 .await;
@@ -298,7 +314,7 @@ impl ConnectionActor {
                     &self.state.world,
                     &self.state.room_channels,
                     &self.state.db,
-                    &account_id,
+                    &character_id,
                     &direction,
                     self.tutorial_complete,
                 )
@@ -319,7 +335,7 @@ impl ConnectionActor {
             protocol::world::ClientMsg::Examine { target } => {
                 let resp = crate::world::commands::handle_examine(
                     &self.state.world,
-                    &account_id,
+                    &character_id,
                     &target,
                 )
                 .await;
@@ -332,7 +348,7 @@ impl ConnectionActor {
                         &self.state.world,
                         &self.state.room_channels,
                         &self.state.db,
-                        &account_id,
+                        &character_id,
                         &command,
                     )
                     .await;
@@ -361,10 +377,263 @@ impl ConnectionActor {
         Ok(())
     }
 
-    /// Graceful cleanup on connection drop: delete the active session if any.
+    /// Encode and write a character ServerMsg to the TCP stream.
+    async fn send_char(
+        &mut self,
+        msg: protocol::character::ServerMsg,
+    ) -> anyhow::Result<()> {
+        let bytes = encode_message(NS_CHAR, &msg)?;
+        self.writer.write_all(&bytes).await?;
+        Ok(())
+    }
+
+    /// Handle character management messages (list, create, select).
+    async fn handle_character_message(
+        &mut self,
+        msg: protocol::character::ClientMsg,
+    ) -> anyhow::Result<()> {
+        // Character commands require login
+        let account_id = match &self.account_id {
+            Some(id) => id.clone(),
+            None => {
+                self.send_auth(AuthServerMsg::Error {
+                    code: ErrorCode::SessionExpired,
+                    message: "you must log in first".to_string(),
+                })
+                .await?;
+                return Ok(());
+            }
+        };
+
+        match msg {
+            protocol::character::ClientMsg::CharacterList => {
+                let rows: Vec<(String, String, String, String, i64)> = sqlx::query_as(
+                    "SELECT id, name, race, class, level FROM characters WHERE account_id = ? ORDER BY created_at"
+                )
+                .bind(&account_id)
+                .fetch_all(&self.state.db)
+                .await?;
+
+                let characters = rows
+                    .into_iter()
+                    .map(|(id, name, race, class, level)| {
+                        protocol::character::CharacterSummary {
+                            id,
+                            name,
+                            race,
+                            class,
+                            level: level as u32,
+                        }
+                    })
+                    .collect();
+
+                self.send_char(protocol::character::ServerMsg::CharacterListResult {
+                    characters,
+                })
+                .await?;
+            }
+
+            protocol::character::ClientMsg::CharacterCreate {
+                name,
+                race,
+                class,
+                gender,
+                ability_scores,
+                racial_bonus_choices,
+            } => {
+                // Validate name
+                if let Err(reason) = validate_name(&name) {
+                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
+                        reason,
+                    })
+                    .await?;
+                    return Ok(());
+                }
+
+                // Parse and validate race
+                let race_enum = match Race::from_str(&race) {
+                    Some(r) => r,
+                    None => {
+                        self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
+                            reason: format!("Unknown race: '{}'. Valid races: human, elf, dwarf, halfling, orc, gnome, half_elf, tiefling", race),
+                        })
+                        .await?;
+                        return Ok(());
+                    }
+                };
+
+                // Validate racial bonus choices
+                if let Err(reason) = race_enum.validate_choices(&racial_bonus_choices) {
+                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
+                        reason,
+                    })
+                    .await?;
+                    return Ok(());
+                }
+
+                // Parse and validate class
+                let class_enum = match Class::from_str(&class) {
+                    Some(c) => c,
+                    None => {
+                        self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
+                            reason: format!("Unknown class: '{}'. Valid classes: warrior, ranger, cleric, mage, rogue", class),
+                        })
+                        .await?;
+                        return Ok(());
+                    }
+                };
+
+                // Parse and validate gender
+                let gender_enum = match Gender::from_str(&gender) {
+                    Some(g) => g,
+                    None => {
+                        self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
+                            reason: format!("Unknown gender: '{}'. Valid options: male, female, non_binary", gender),
+                        })
+                        .await?;
+                        return Ok(());
+                    }
+                };
+
+                // Validate point buy
+                if let Err(reason) = validate_point_buy(&ability_scores) {
+                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
+                        reason,
+                    })
+                    .await?;
+                    return Ok(());
+                }
+
+                // Calculate initial stats
+                let stats = calculate_initial_stats(
+                    &race_enum,
+                    &class_enum,
+                    &ability_scores,
+                    &racial_bonus_choices,
+                );
+
+                let character_id = uuid::Uuid::new_v4().to_string();
+
+                // Insert into DB
+                let result = sqlx::query(
+                    "INSERT INTO characters (id, account_id, name, race, class, gender, hp, max_hp, mana, max_mana, stamina, max_stamina, str_score, dex_score, con_score, int_score, wis_score, cha_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                )
+                .bind(&character_id)
+                .bind(&account_id)
+                .bind(&name)
+                .bind(race_enum.as_str())
+                .bind(class_enum.as_str())
+                .bind(gender_enum.as_str())
+                .bind(stats.hp)
+                .bind(stats.max_hp)
+                .bind(stats.mana)
+                .bind(stats.max_mana)
+                .bind(stats.stamina)
+                .bind(stats.max_stamina)
+                .bind(stats.final_scores[0] as i32)
+                .bind(stats.final_scores[1] as i32)
+                .bind(stats.final_scores[2] as i32)
+                .bind(stats.final_scores[3] as i32)
+                .bind(stats.final_scores[4] as i32)
+                .bind(stats.final_scores[5] as i32)
+                .execute(&self.state.db)
+                .await;
+
+                match result {
+                    Ok(_) => {
+                        debug!(%character_id, %name, "character created");
+                        self.send_char(protocol::character::ServerMsg::CharacterCreateOk {
+                            character_id,
+                            name,
+                        })
+                        .await?;
+                    }
+                    Err(e) if e.to_string().contains("UNIQUE") => {
+                        self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
+                            reason: format!("Character name '{}' is already taken", name),
+                        })
+                        .await?;
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "character creation failed");
+                        self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
+                            reason: "Character creation failed".to_string(),
+                        })
+                        .await?;
+                    }
+                }
+            }
+
+            protocol::character::ClientMsg::CharacterSelect { character_id } => {
+                // Verify character belongs to this account
+                let row: Option<(String, String, String, i64, i64, i64, i64, i64, i64, i64)> = sqlx::query_as(
+                    "SELECT name, race, class, hp, max_hp, mana, max_mana, stamina, max_stamina, level FROM characters WHERE id = ? AND account_id = ?"
+                )
+                .bind(&character_id)
+                .bind(&account_id)
+                .fetch_optional(&self.state.db)
+                .await?;
+
+                let (name, _race, _class, _hp, _max_hp, _mana, _max_mana, _stamina, _max_stamina, _level) = match row {
+                    Some(r) => r,
+                    None => {
+                        self.send_char(protocol::character::ServerMsg::CharacterSelectFail {
+                            reason: "Character not found or does not belong to your account".to_string(),
+                        })
+                        .await?;
+                        return Ok(());
+                    }
+                };
+
+                // Set active character
+                self.active_character_id = Some(character_id.clone());
+                self.active_character_name = Some(name.clone());
+
+                // Place character in world
+                self.ensure_character_in_world(&character_id).await;
+
+                // Register display name
+                {
+                    let mut w = self.state.world.write().await;
+                    w.player_names.insert(character_id.clone(), name.clone());
+                }
+
+                // Subscribe to room broadcast channel
+                self.subscribe_to_current_room(&character_id).await;
+
+                debug!(%character_id, %name, "character selected");
+
+                self.send_char(protocol::character::ServerMsg::CharacterSelected {
+                    character_id: character_id.clone(),
+                    name: name.clone(),
+                })
+                .await?;
+
+                // Send initial room description
+                let room_desc = crate::world::commands::handle_look(
+                    &self.state.world,
+                    &character_id,
+                    self.tutorial_complete,
+                )
+                .await;
+                self.send_world(room_desc).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Graceful cleanup on connection drop: delete the active session and remove character from world.
     ///
     /// Satisfies AUTH-08: disconnecting without explicit logout still invalidates the session.
     async fn cleanup(&mut self) {
+        // Remove character from in-memory world
+        if let Some(char_id) = self.active_character_id.take() {
+            let mut w = self.state.world.write().await;
+            w.player_positions.remove(&char_id);
+            w.player_names.remove(&char_id);
+        }
+        self.active_character_name = None;
+
         if let Some(token) = self.session_token.take() {
             if let Err(e) = delete_session(&self.state.db, &token).await {
                 warn!(error = %e, "delete_session failed during cleanup");
@@ -374,47 +643,63 @@ impl ConnectionActor {
         self.room_receiver = None;
     }
 
-    /// Ensure the player has a position in the world. If not, place them at the default spawn.
+    /// Ensure the character has a position in the world. If not, place them at the default spawn.
     ///
     /// The spawn room is determined by (in priority order):
-    /// 1. `world.default_spawn` — set at runtime by test helpers for custom spawn locations
-    /// 2. `DEFAULT_SPAWN_ROOM` constant — the production default
-    async fn ensure_player_in_world(&self, account_id: &str) {
-        let (needs_placement, spawn_override) = {
+    /// 1. Persisted position in `character_positions` table
+    /// 2. `world.default_spawn` — set at runtime by test helpers
+    /// 3. `DEFAULT_SPAWN_ROOM` constant — the production default
+    async fn ensure_character_in_world(&self, character_id: &str) {
+        // Check for persisted position first
+        let persisted_room: Option<(String,)> = sqlx::query_as(
+            "SELECT room_id FROM character_positions WHERE character_id = ?"
+        )
+        .bind(character_id)
+        .fetch_optional(&self.state.db)
+        .await
+        .unwrap_or(None);
+
+        if let Some((room_id,)) = persisted_room {
+            let mut w = self.state.world.write().await;
+            w.player_positions
+                .insert(character_id.to_string(), RoomId(room_id));
+            return;
+        }
+
+        // No persisted position — use default spawn
+        let spawn_override = {
             let w = self.state.world.read().await;
-            (!w.player_positions.contains_key(account_id), w.default_spawn.clone())
+            w.default_spawn.clone()
         };
 
-        if needs_placement {
-            let spawn = spawn_override
-                .unwrap_or_else(|| RoomId(DEFAULT_SPAWN_ROOM.to_string()));
+        let spawn = spawn_override
+            .unwrap_or_else(|| RoomId(DEFAULT_SPAWN_ROOM.to_string()));
 
-            // Insert into in-memory world
-            {
-                let mut w = self.state.world.write().await;
-                w.player_positions
-                    .insert(account_id.to_string(), spawn.clone());
-            }
+        // Insert into in-memory world
+        {
+            let mut w = self.state.world.write().await;
+            w.player_positions
+                .insert(character_id.to_string(), spawn.clone());
+        }
 
-            // Persist to SQLite
-            if let Err(e) = sqlx::query(
-                "INSERT OR IGNORE INTO player_positions (account_id, room_id, updated_at) VALUES (?, ?, unixepoch())"
-            )
-            .bind(account_id)
-            .bind(&spawn.0)
-            .execute(&self.state.db)
-            .await
-            {
-                warn!(error = %e, "failed to persist initial player position");
-            }
+        // Persist to SQLite
+        if let Err(e) = sqlx::query(
+            "INSERT OR IGNORE INTO character_positions (character_id, room_id, updated_at) VALUES (?, ?, unixepoch())"
+        )
+        .bind(character_id)
+        .bind(&spawn.0)
+        .execute(&self.state.db)
+        .await
+        {
+            warn!(error = %e, "failed to persist initial character position");
         }
     }
 
-    /// Subscribe the actor's room_receiver to the player's current room channel.
-    async fn subscribe_to_current_room(&mut self, account_id: &str) {
+    /// Subscribe the actor's room_receiver to the character's current room channel.
+    async fn subscribe_to_current_room(&mut self, character_id: &str) {
         let room_id = {
             let w = self.state.world.read().await;
-            w.player_positions.get(account_id).cloned()
+            w.player_positions.get(character_id).cloned()
         };
 
         if let Some(room_id) = room_id {

@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Players can explore a shared persistent dungeon world together through a beautiful terminal interface — social interaction and exploration come first, combat second.
-**Current focus:** Phase 02 — world-and-movement
+**Current focus:** Phase 03 — character-and-combat
 
 ## Current Position
 
 Phase: 3
-Plan: Not started
+Plan: 03-01 (Character Creation + DB Schema) — executing
 
 ## Performance Metrics
 

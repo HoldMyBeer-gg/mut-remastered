@@ -5,6 +5,7 @@
 /// This file makes `server::auth`, `server::db`, `server::net`, and
 /// `server::session` available to those tests.
 pub mod auth;
+pub mod character;
 pub mod config;
 pub mod db;
 pub mod net;

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use protocol::auth::{ClientMsg, ServerMsg};
-use protocol::codec::{decode_message, encode_message, NS_AUTH, NS_WORLD};
+use protocol::codec::{decode_message, encode_message, NS_AUTH, NS_CHAR, NS_WORLD};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::{RwLock, broadcast};
@@ -267,5 +267,88 @@ impl TestClient {
             command: command.to_string(),
         })
         .await;
+    }
+
+    /// Encode and send a character `ClientMsg` to the server.
+    pub async fn send_char(&mut self, msg: &protocol::character::ClientMsg) {
+        let bytes = encode_message(NS_CHAR, msg).expect("failed to encode character ClientMsg");
+        self.stream
+            .write_all(&bytes)
+            .await
+            .expect("failed to write character msg to test server");
+    }
+
+    /// Read the next length-prefixed frame and decode it as a character `ServerMsg`.
+    pub async fn recv_char(&mut self) -> protocol::character::ServerMsg {
+        let mut len_buf = [0u8; 4];
+        self.stream
+            .read_exact(&mut len_buf)
+            .await
+            .expect("failed to read character msg length prefix");
+        let payload_len = u32::from_le_bytes(len_buf) as usize;
+
+        let mut payload = vec![0u8; payload_len];
+        self.stream
+            .read_exact(&mut payload)
+            .await
+            .expect("failed to read character msg payload");
+
+        decode_message::<protocol::character::ServerMsg>(NS_CHAR, &payload)
+            .expect("failed to decode character ServerMsg")
+    }
+
+    /// Full setup: register, login, create a default warrior character, select it.
+    /// Returns (session_token, character_id).
+    pub async fn full_setup(
+        &mut self,
+        username: &str,
+        password: &str,
+        char_name: &str,
+    ) -> (String, String) {
+        // Register
+        self.send(&ClientMsg::Register {
+            username: username.to_string(),
+            password: password.to_string(),
+        })
+        .await;
+        let _reg = self.recv().await;
+
+        // Login
+        self.send(&ClientMsg::Login {
+            username: username.to_string(),
+            password: password.to_string(),
+        })
+        .await;
+        let login_resp = self.recv().await;
+        let session_token = match login_resp {
+            ServerMsg::LoginOk { session_token } => session_token,
+            other => panic!("full_setup: expected LoginOk, got {:?}", other),
+        };
+
+        // Create character (standard warrior build: 15 STR, 14 CON, 13 DEX, 12 WIS, 10 INT, 8 CHA = 9+7+5+4+2+0 = 27)
+        self.send_char(&protocol::character::ClientMsg::CharacterCreate {
+            name: char_name.to_string(),
+            race: "human".to_string(),
+            class: "warrior".to_string(),
+            gender: "male".to_string(),
+            ability_scores: [15, 13, 14, 10, 12, 8],
+            racial_bonus_choices: vec![0, 2], // +1 STR, +1 CON
+        })
+        .await;
+        let create_resp = self.recv_char().await;
+        let character_id = match create_resp {
+            protocol::character::ServerMsg::CharacterCreateOk { character_id, .. } => character_id,
+            other => panic!("full_setup: expected CharacterCreateOk, got {:?}", other),
+        };
+
+        // Select character
+        self.send_char(&protocol::character::ClientMsg::CharacterSelect {
+            character_id: character_id.clone(),
+        })
+        .await;
+        let _selected = self.recv_char().await; // CharacterSelected
+        let _room_desc = self.recv_world().await; // Initial RoomDescription
+
+        (session_token, character_id)
     }
 }
