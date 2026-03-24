@@ -544,6 +544,25 @@ async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
         "flee" | "run" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::Flee).await;
         }
+        "use" | "cast" | "ability" => {
+            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: arg }).await;
+        }
+        // Direct ability shortcuts
+        "blast" | "arcane_blast" => {
+            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "blast".to_string() }).await;
+        }
+        "heal" => {
+            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "heal".to_string() }).await;
+        }
+        "strike" | "power_strike" => {
+            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "strike".to_string() }).await;
+        }
+        "aim" | "aimed_shot" => {
+            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "aim".to_string() }).await;
+        }
+        "sneak" | "sneak_attack" => {
+            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "sneak".to_string() }).await;
+        }
         "inventory" | "inv" | "i" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Inventory).await;
         }

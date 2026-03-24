@@ -227,7 +227,7 @@ pub fn render_game(f: &mut Frame, state: &GameState) {
         Constraint::Length(1),       // menu bar
         Constraint::Percentage(30),  // room + map
         Constraint::Min(5),          // game log
-        Constraint::Length(2),       // vitals bar
+        Constraint::Length(4),       // vitals bar
         Constraint::Length(3),       // input
     ])
     .split(area);
@@ -425,51 +425,54 @@ fn render_game_log(f: &mut Frame, state: &GameState, area: Rect) {
 }
 
 fn render_vitals(f: &mut Frame, state: &GameState, area: Rect) {
-    let hp_pct = if state.max_hp > 0 {
-        (state.hp as f64 / state.max_hp as f64 * 100.0) as u16
-    } else {
-        0
-    };
-    let hp_color = if hp_pct > 60 {
-        Color::Green
-    } else if hp_pct > 30 {
-        Color::Yellow
-    } else {
-        Color::Red
-    };
-
-    let vitals_text = Line::from(vec![
-        Span::styled(
-            format!(" HP: {}/{} ", state.hp, state.max_hp),
-            Style::default().fg(hp_color).add_modifier(Modifier::BOLD),
-        ),
-        Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(
-            format!(" MP: {}/{} ", state.mana, state.max_mana),
-            Style::default().fg(Color::Blue),
-        ),
-        Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(
-            format!(" SP: {}/{} ", state.stamina, state.max_stamina),
-            Style::default().fg(Color::Yellow),
-        ),
-        Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(
-            format!(" Lv {} XP: {} ", state.level, state.xp),
-            Style::default().fg(Color::Cyan),
-        ),
-        Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(
-            format!(" {} ", state.character_name),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-        ),
-    ]);
-
     let block = Block::new()
         .borders(Borders::TOP)
-        .border_style(Style::default().fg(Color::DarkGray));
-    let paragraph = Paragraph::new(vitals_text).block(block);
-    f.render_widget(paragraph, area);
+        .border_style(Style::default().fg(Color::DarkGray))
+        .title(format!(" {} — Lv {} — XP: {} ", state.character_name, state.level, state.xp))
+        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    let bar_chunks = Layout::horizontal([
+        Constraint::Percentage(33),
+        Constraint::Percentage(33),
+        Constraint::Percentage(34),
+    ])
+    .split(inner);
+
+    // HP bar
+    let hp_ratio = if state.max_hp > 0 { state.hp as f64 / state.max_hp as f64 } else { 0.0 };
+    let hp_color = if hp_ratio > 0.6 { Color::Green } else if hp_ratio > 0.3 { Color::Yellow } else { Color::Red };
+    let hp_gauge = Gauge::default()
+        .gauge_style(Style::default().fg(hp_color).bg(Color::Rgb(30, 30, 30)))
+        .label(Span::styled(
+            format!("HP {}/{}", state.hp, state.max_hp),
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ))
+        .ratio(hp_ratio.clamp(0.0, 1.0));
+    f.render_widget(hp_gauge, bar_chunks[0]);
+
+    // Mana bar
+    let mp_ratio = if state.max_mana > 0 { state.mana as f64 / state.max_mana as f64 } else { 0.0 };
+    let mp_gauge = Gauge::default()
+        .gauge_style(Style::default().fg(Color::Blue).bg(Color::Rgb(30, 30, 30)))
+        .label(Span::styled(
+            format!("MP {}/{}", state.mana, state.max_mana),
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ))
+        .ratio(mp_ratio.clamp(0.0, 1.0));
+    f.render_widget(mp_gauge, bar_chunks[1]);
+
+    // Stamina bar
+    let sp_ratio = if state.max_stamina > 0 { state.stamina as f64 / state.max_stamina as f64 } else { 0.0 };
+    let sp_gauge = Gauge::default()
+        .gauge_style(Style::default().fg(Color::Yellow).bg(Color::Rgb(30, 30, 30)))
+        .label(Span::styled(
+            format!("SP {}/{}", state.stamina, state.max_stamina),
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ))
+        .ratio(sp_ratio.clamp(0.0, 1.0));
+    f.render_widget(sp_gauge, bar_chunks[2]);
 }
 
 fn render_input(f: &mut Frame, state: &GameState, area: Rect) {

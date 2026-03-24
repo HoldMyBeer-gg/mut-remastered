@@ -234,6 +234,10 @@ pub struct CombatInstance {
     pub round: u32,
     /// Tracks each player's last attack target for auto-attack.
     pub last_targets: HashMap<CombatantId, CombatantId>,
+    /// Ability cooldowns: (combatant_id, ability_name) → rounds remaining.
+    pub cooldowns: HashMap<(CombatantId, String), u32>,
+    /// Whether Rogue's sneak attack has been used this combat.
+    pub sneak_attack_used: HashMap<CombatantId, bool>,
     /// Players involved (character_ids) — for XP distribution.
     pub player_participants: Vec<String>,
 }
@@ -254,6 +258,8 @@ impl CombatInstance {
             queued_actions: HashMap::new(),
             round: 0,
             last_targets: HashMap::new(),
+            cooldowns: HashMap::new(),
+            sneak_attack_used: HashMap::new(),
             player_participants,
         }
     }

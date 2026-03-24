@@ -282,12 +282,145 @@ impl CombatManager {
                         }
                     }
                     CombatAction::UseAbility { ability_name, target } => {
-                        // TODO: Implement class abilities in future iteration
-                        log_entries.push(format!(
-                            "{} tries to use {} but it's not yet implemented!",
-                            combatant.name, ability_name
-                        ));
-                        let _ = target; // suppress warning
+                        if let CombatantId::Player(char_id) = &combatant.id {
+                            // Clone stats to avoid borrow conflicts
+                            let stats_snapshot = player_stats.get(char_id).cloned();
+                            if let Some(mut stats) = stats_snapshot {
+                                // Check cooldown
+                                let cd_key = (combatant.id.clone(), ability_name.clone());
+                                if let Some(&cd) = combat.cooldowns.get(&cd_key) {
+                                    if cd > 0 {
+                                        log_entries.push(format!(
+                                            "{}'s {} is on cooldown ({} rounds remaining).",
+                                            combatant.name, ability_name, cd
+                                        ));
+                                        // Write back unchanged stats
+                                        player_stats.insert(char_id.clone(), stats);
+                                        continue;
+                                    }
+                                }
+
+                                // Get target AC before any mutations
+                                let defender_ac = match &target {
+                                    CombatantId::Monster(mon_id) => {
+                                        active_monsters.get(room_id)
+                                            .and_then(|ms| ms.iter().find(|m| m.id == *mon_id))
+                                            .map(|m| m.ac)
+                                            .unwrap_or(10)
+                                    }
+                                    CombatantId::Player(pid) => {
+                                        player_stats.get(pid).map(|s| s.ac).unwrap_or(10)
+                                    }
+                                };
+
+                                let mut dealt_damage: Option<(i32, CombatantId)> = None;
+
+                                match ability_name.to_lowercase().as_str() {
+                                    "arcane_blast" | "blast" if stats.class == "mage" => {
+                                        if stats.mana < 5 {
+                                            log_entries.push(format!("{} doesn't have enough mana!", combatant.name));
+                                        } else {
+                                            stats.mana -= 5;
+                                            let dmg = crate::combat::engine::roll_dice(3, 6) + stats.int_mod;
+                                            let dmg = dmg.max(1);
+                                            log_entries.push(format!(
+                                                "🔮 {} unleashes Arcane Blast for {} damage! (3d6+{})",
+                                                combatant.name, dmg, stats.int_mod
+                                            ));
+                                            dealt_damage = Some((dmg, target.clone()));
+                                            combat.cooldowns.insert(cd_key, 5);
+                                        }
+                                    }
+                                    "heal" if stats.class == "cleric" => {
+                                        if stats.mana < 5 {
+                                            log_entries.push(format!("{} doesn't have enough mana!", combatant.name));
+                                        } else {
+                                            stats.mana -= 5;
+                                            let heal = crate::combat::engine::roll_dice(2, 8) + stats.wis_mod;
+                                            let heal = heal.max(1);
+                                            stats.hp = (stats.hp + heal).min(stats.max_hp);
+                                            log_entries.push(format!(
+                                                "✨ {} casts Heal, restoring {} HP! (HP: {}/{})",
+                                                combatant.name, heal, stats.hp, stats.max_hp
+                                            ));
+                                            combat.cooldowns.insert(cd_key, 5);
+                                        }
+                                    }
+                                    "power_strike" | "strike" if stats.class == "warrior" => {
+                                        if stats.stamina < 5 {
+                                            log_entries.push(format!("{} doesn't have enough stamina!", combatant.name));
+                                        } else {
+                                            stats.stamina -= 5;
+                                            let result = crate::combat::engine::resolve_attack(stats.attack_bonus, defender_ac);
+                                            if result.is_hit() {
+                                                let (dmg, _) = crate::combat::engine::roll_damage(
+                                                    stats.damage_dice * 2, stats.damage_sides, stats.damage_bonus, result.is_crit(),
+                                                );
+                                                log_entries.push(format!("⚔ {} uses Power Strike for {} damage!", combatant.name, dmg));
+                                                dealt_damage = Some((dmg, target.clone()));
+                                            } else {
+                                                log_entries.push(format!("⚔ {} uses Power Strike — MISS!", combatant.name));
+                                            }
+                                            combat.cooldowns.insert(cd_key, 5);
+                                        }
+                                    }
+                                    "aimed_shot" | "aim" if stats.class == "ranger" => {
+                                        if stats.stamina < 3 {
+                                            log_entries.push(format!("{} doesn't have enough stamina!", combatant.name));
+                                        } else {
+                                            stats.stamina -= 3;
+                                            let result = crate::combat::engine::resolve_attack(stats.attack_bonus + 5, defender_ac);
+                                            if result.is_hit() {
+                                                let (dmg, _) = crate::combat::engine::roll_damage(
+                                                    stats.damage_dice, stats.damage_sides, stats.damage_bonus, result.is_crit(),
+                                                );
+                                                log_entries.push(format!("🎯 {} fires an Aimed Shot for {} damage!", combatant.name, dmg));
+                                                dealt_damage = Some((dmg, target.clone()));
+                                            } else {
+                                                log_entries.push(format!("🎯 {} fires an Aimed Shot — MISS!", combatant.name));
+                                            }
+                                            combat.cooldowns.insert(cd_key, 3);
+                                        }
+                                    }
+                                    "sneak_attack" | "sneak" if stats.class == "rogue" => {
+                                        let used = combat.sneak_attack_used.get(&combatant.id).copied().unwrap_or(false);
+                                        if used {
+                                            log_entries.push(format!("{} already used Sneak Attack this combat!", combatant.name));
+                                        } else {
+                                            let result = crate::combat::engine::resolve_attack(stats.attack_bonus, defender_ac);
+                                            if result.is_hit() {
+                                                let base = crate::combat::engine::roll_dice(stats.damage_dice, stats.damage_sides);
+                                                let sneak_bonus = crate::combat::engine::roll_dice(2, 6);
+                                                let total = (base + sneak_bonus + stats.damage_bonus).max(1);
+                                                log_entries.push(format!("🗡 {} strikes from the shadows for {} damage!", combatant.name, total));
+                                                dealt_damage = Some((total, target.clone()));
+                                            } else {
+                                                log_entries.push(format!("🗡 {} tries to strike from the shadows — MISS!", combatant.name));
+                                            }
+                                            combat.sneak_attack_used.insert(combatant.id.clone(), true);
+                                        }
+                                    }
+                                    _ => {
+                                        log_entries.push(format!(
+                                            "{} doesn't know the ability '{}'.",
+                                            combatant.name, ability_name
+                                        ));
+                                    }
+                                }
+
+                                // Write back modified stats
+                                player_stats.insert(char_id.clone(), stats);
+
+                                // Apply damage after stats borrow is released
+                                if let Some((dmg, dmg_target)) = dealt_damage {
+                                    apply_damage_to_target(
+                                        &dmg_target, dmg, active_monsters, room_id,
+                                        player_stats, &mut log_entries, &mut deaths,
+                                        &mut monster_kills, &combat.player_participants,
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -302,6 +435,12 @@ impl CombatManager {
             for char_id in &fled {
                 combat.remove_combatant(&CombatantId::Player(char_id.clone()));
             }
+
+            // Tick down cooldowns
+            combat.cooldowns.retain(|_, cd| {
+                if *cd > 0 { *cd -= 1; }
+                *cd > 0
+            });
 
             // Check if combat should end
             let combat_ended = !combat.has_players() || !combat.has_monsters();
@@ -363,6 +502,10 @@ pub struct PlayerCombatStats {
     pub damage_sides: u32,
     pub damage_bonus: i32,
     pub ability_label: &'static str,
+    pub class: String,
+    pub int_mod: i32,
+    pub wis_mod: i32,
+    pub str_mod: i32,
 }
 
 /// Get the AC of a target combatant.
@@ -449,22 +592,17 @@ pub fn build_player_combat_stats(
     str_score: u8,
     dex_score: u8,
     _con_score: u8,
-    _int_score: u8,
-    _wis_score: u8,
+    int_score: u8,
+    wis_score: u8,
     _cha_score: u8,
     class: &str,
 ) -> PlayerCombatStats {
-    // Determine attack ability based on class
     let (attack_mod, ability_label) = match class {
         "ranger" | "rogue" => (ability_modifier(dex_score), "DEX"),
         _ => (ability_modifier(str_score), "STR"),
     };
 
-    // Base proficiency bonus (+2 at level 1)
     let proficiency = 2;
-
-    // Default weapon: fists (1d4 + ability mod)
-    // TODO: Use equipped weapon in Plan 03-03
     let (damage_dice, damage_sides, damage_bonus) = (1u32, 4u32, attack_mod);
 
     PlayerCombatStats {
@@ -478,11 +616,15 @@ pub fn build_player_combat_stats(
         max_stamina,
         xp,
         level,
-        ac: 10 + ability_modifier(dex_score), // Base AC, no armor yet (Plan 03-03)
+        ac: 10 + ability_modifier(dex_score),
         attack_bonus: attack_mod + proficiency,
         damage_dice,
         damage_sides,
         damage_bonus,
         ability_label,
+        class: class.to_string(),
+        int_mod: ability_modifier(int_score),
+        wis_mod: ability_modifier(wis_score),
+        str_mod: ability_modifier(str_score),
     }
 }

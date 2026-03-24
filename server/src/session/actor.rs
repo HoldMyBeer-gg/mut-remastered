@@ -998,11 +998,41 @@ impl ConnectionActor {
             }
 
             protocol::combat::ClientMsg::UseAbility { ability_name } => {
-                // TODO: Implement class abilities
-                self.send_combat(CombatServerMsg::ActionFail {
-                    reason: format!("Ability '{}' is not yet implemented.", ability_name),
-                })
-                .await?;
+                let character_id_clone = character_id.clone();
+                // Find current combat and queue ability against current target
+                let queued = {
+                    let mut mgr = self.state.combat_manager.write().await;
+                    if let Some(combat_room) = mgr.find_combat_for_player(&character_id) {
+                        // Find the first monster target in combat
+                        let target = mgr.combats.get(&combat_room).and_then(|c| {
+                            // Use last target or first monster
+                            c.last_targets.get(&crate::combat::types::CombatantId::Player(character_id_clone.clone()))
+                                .cloned()
+                                .or_else(|| {
+                                    c.combatants.iter().find_map(|cb| {
+                                        if let crate::combat::types::CombatantId::Monster(id) = &cb.id {
+                                            Some(crate::combat::types::CombatantId::Monster(id.clone()))
+                                        } else { None }
+                                    })
+                                })
+                        });
+                        if let Some(target) = target {
+                            mgr.queue_action(
+                                &combat_room,
+                                crate::combat::types::CombatantId::Player(character_id_clone),
+                                crate::combat::types::CombatAction::UseAbility { ability_name: ability_name.clone(), target },
+                            );
+                            true
+                        } else { false }
+                    } else { false }
+                };
+
+                if !queued {
+                    self.send_combat(CombatServerMsg::ActionFail {
+                        reason: "You must be in combat to use abilities.".to_string(),
+                    })
+                    .await?;
+                }
             }
         }
         Ok(())
