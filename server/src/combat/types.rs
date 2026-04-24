@@ -49,9 +49,15 @@ impl MonsterTemplate {
     /// Format the damage as a string like "1d6+2".
     pub fn damage_string(&self) -> String {
         if self.damage_bonus > 0 {
-            format!("{}d{}+{}", self.damage_dice, self.damage_sides, self.damage_bonus)
+            format!(
+                "{}d{}+{}",
+                self.damage_dice, self.damage_sides, self.damage_bonus
+            )
         } else if self.damage_bonus < 0 {
-            format!("{}d{}{}", self.damage_dice, self.damage_sides, self.damage_bonus)
+            format!(
+                "{}d{}{}",
+                self.damage_dice, self.damage_sides, self.damage_bonus
+            )
         } else {
             format!("{}d{}", self.damage_dice, self.damage_sides)
         }
@@ -62,14 +68,8 @@ impl MonsterTemplate {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum LootEntry {
-    Item {
-        item: String,
-        chance: u32,
-    },
-    Gold {
-        gold_min: i32,
-        gold_max: i32,
-    },
+    Item { item: String, chance: u32 },
+    Gold { gold_min: i32, gold_max: i32 },
 }
 
 // ── Spawn Tables (in zone TOML) ──────────────────────────────────────────
@@ -130,9 +130,15 @@ impl ActiveMonster {
 
     pub fn damage_string(&self) -> String {
         if self.damage_bonus > 0 {
-            format!("{}d{}+{}", self.damage_dice, self.damage_sides, self.damage_bonus)
+            format!(
+                "{}d{}+{}",
+                self.damage_dice, self.damage_sides, self.damage_bonus
+            )
         } else if self.damage_bonus < 0 {
-            format!("{}d{}{}", self.damage_dice, self.damage_sides, self.damage_bonus)
+            format!(
+                "{}d{}{}",
+                self.damage_dice, self.damage_sides, self.damage_bonus
+            )
         } else {
             format!("{}d{}", self.damage_dice, self.damage_sides)
         }
@@ -159,9 +165,14 @@ pub struct CombatantInfo {
 /// An action queued for the current round.
 #[derive(Debug, Clone)]
 pub enum CombatAction {
-    Attack { target: CombatantId },
+    Attack {
+        target: CombatantId,
+    },
     Flee,
-    UseAbility { ability_name: String, target: CombatantId },
+    UseAbility {
+        ability_name: String,
+        target: CombatantId,
+    },
 }
 
 /// Result of processing one combat round.

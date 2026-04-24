@@ -26,21 +26,40 @@ async fn test_get_and_drop_item() {
     // Instead, let's test inventory listing on empty inventory (still validates the command path).
 
     // Empty inventory
-    client.send_world(&protocol::world::ClientMsg::Inventory).await;
+    client
+        .send_world(&protocol::world::ClientMsg::Inventory)
+        .await;
     let inv = client.recv_world().await;
     match inv {
-        WorldServerMsg::InventoryList { items, equipped, gold } => {
-            assert!(items.is_empty(), "new character should have empty inventory");
-            assert!(equipped.is_empty(), "new character should have no equipped items");
+        WorldServerMsg::InventoryList {
+            items,
+            equipped,
+            gold,
+        } => {
+            assert!(
+                items.is_empty(),
+                "new character should have empty inventory"
+            );
+            assert!(
+                equipped.is_empty(),
+                "new character should have no equipped items"
+            );
             assert_eq!(gold, 0, "new character should have 0 gold");
         }
         other => panic!("expected InventoryList, got {:?}", other),
     }
 
     // Try to get a nonexistent item
-    client.send_world(&protocol::world::ClientMsg::GetItem { target: "sword".to_string() }).await;
+    client
+        .send_world(&protocol::world::ClientMsg::GetItem {
+            target: "sword".to_string(),
+        })
+        .await;
     let get_resp = client.recv_world().await;
-    assert!(matches!(get_resp, WorldServerMsg::WorldActionFail { .. }), "expected WorldActionFail for missing item");
+    assert!(
+        matches!(get_resp, WorldServerMsg::WorldActionFail { .. }),
+        "expected WorldActionFail for missing item"
+    );
 }
 
 /// CHAR-03/04: Stats command shows character stats.
@@ -55,7 +74,17 @@ async fn test_stats_shows_character_info() {
     client.send_world(&protocol::world::ClientMsg::Stats).await;
     let stats = client.recv_world().await;
     match stats {
-        WorldServerMsg::StatsResult { name, race, class, level, hp, max_hp, ac, str_score, .. } => {
+        WorldServerMsg::StatsResult {
+            name,
+            race,
+            class,
+            level,
+            hp,
+            max_hp,
+            ac,
+            str_score,
+            ..
+        } => {
             assert_eq!(name, "StatsHero");
             assert_eq!(race, "human");
             assert_eq!(class, "warrior");

@@ -42,9 +42,7 @@ async fn test_10_concurrent_connections() {
             );
 
             // Login
-            client
-                .send(&ClientMsg::Login { username, password })
-                .await;
+            client.send(&ClientMsg::Login { username, password }).await;
             let resp = client.recv().await;
             assert!(
                 matches!(resp, ServerMsg::LoginOk { .. }),

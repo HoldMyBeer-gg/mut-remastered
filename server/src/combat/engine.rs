@@ -20,7 +20,10 @@ pub enum AttackResult {
 
 impl AttackResult {
     pub fn is_hit(&self) -> bool {
-        matches!(self, AttackResult::CriticalHit { .. } | AttackResult::Hit { .. })
+        matches!(
+            self,
+            AttackResult::CriticalHit { .. } | AttackResult::Hit { .. }
+        )
     }
 
     pub fn is_crit(&self) -> bool {
@@ -160,9 +163,22 @@ mod tests {
 
     #[test]
     fn test_format_combat_log_hit() {
-        let result = AttackResult::Hit { roll: 14, total: 16 };
-        let log = format_combat_log("Grok", &result, 2, 12, "STR", Some((7, "1d6+3".to_string())));
-        assert_eq!(log, "Grok rolled 14 + 2 STR vs AC 12 — HIT! 7 damage (1d6+3)");
+        let result = AttackResult::Hit {
+            roll: 14,
+            total: 16,
+        };
+        let log = format_combat_log(
+            "Grok",
+            &result,
+            2,
+            12,
+            "STR",
+            Some((7, "1d6+3".to_string())),
+        );
+        assert_eq!(
+            log,
+            "Grok rolled 14 + 2 STR vs AC 12 — HIT! 7 damage (1d6+3)"
+        );
     }
 
     #[test]
@@ -174,9 +190,22 @@ mod tests {
 
     #[test]
     fn test_format_combat_log_crit() {
-        let result = AttackResult::CriticalHit { roll: 20, total: 22 };
-        let log = format_combat_log("Grok", &result, 2, 12, "STR", Some((14, "2d6+3".to_string())));
-        assert_eq!(log, "CRITICAL HIT! Grok rolled 20 + 2 STR vs AC 12 — 14 damage (2d6+3)");
+        let result = AttackResult::CriticalHit {
+            roll: 20,
+            total: 22,
+        };
+        let log = format_combat_log(
+            "Grok",
+            &result,
+            2,
+            12,
+            "STR",
+            Some((14, "2d6+3".to_string())),
+        );
+        assert_eq!(
+            log,
+            "CRITICAL HIT! Grok rolled 20 + 2 STR vs AC 12 — 14 damage (2d6+3)"
+        );
     }
 
     #[test]
@@ -199,7 +228,11 @@ mod tests {
     fn test_roll_damage_crit_doubles_dice() {
         for _ in 0..50 {
             let (dmg, desc) = roll_damage(1, 6, 3, true);
-            assert!((5..=15).contains(&dmg), "crit 2d6+3 damage out of range: {}", dmg);
+            assert!(
+                (5..=15).contains(&dmg),
+                "crit 2d6+3 damage out of range: {}",
+                dmg
+            );
             assert_eq!(desc, "2d6+3");
         }
     }

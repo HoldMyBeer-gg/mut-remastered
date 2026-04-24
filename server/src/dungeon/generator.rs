@@ -4,10 +4,10 @@
 //! Guarantees full connectivity (DUNG-03) via spanning tree corridors.
 //! Supports anchor points for hand-crafted set pieces (DUNG-02).
 
-use std::collections::HashMap;
 use rand::Rng;
+use std::collections::HashMap;
 
-use crate::world::types::{RoomDef, RoomId, TriggerDef};
+use crate::world::types::RoomDef;
 
 /// Configuration for dungeon generation.
 pub struct DungeonConfig {
@@ -37,24 +37,52 @@ impl DungeonTheme {
     fn room_names(&self) -> &[&str] {
         match self {
             DungeonTheme::Crypt => &[
-                "Dusty Crypt Chamber", "Ossuary", "Burial Hall", "Tomb Antechamber",
-                "Sarcophagus Room", "Embalming Chamber", "Crypt Passage", "Bone Vault",
-                "Mourning Chapel", "Catacombs Junction",
+                "Dusty Crypt Chamber",
+                "Ossuary",
+                "Burial Hall",
+                "Tomb Antechamber",
+                "Sarcophagus Room",
+                "Embalming Chamber",
+                "Crypt Passage",
+                "Bone Vault",
+                "Mourning Chapel",
+                "Catacombs Junction",
             ],
             DungeonTheme::Cave => &[
-                "Dripping Cavern", "Mushroom Grotto", "Underground Pool", "Narrow Fissure",
-                "Crystal Chamber", "Bat Colony", "Stalagmite Forest", "Echoing Gallery",
-                "Subterranean Stream", "Boulder-Strewn Cave",
+                "Dripping Cavern",
+                "Mushroom Grotto",
+                "Underground Pool",
+                "Narrow Fissure",
+                "Crystal Chamber",
+                "Bat Colony",
+                "Stalagmite Forest",
+                "Echoing Gallery",
+                "Subterranean Stream",
+                "Boulder-Strewn Cave",
             ],
             DungeonTheme::Ruins => &[
-                "Crumbling Hall", "Overgrown Library", "Collapsed Throne Room", "Mossy Courtyard",
-                "Ruined Barracks", "Flooded Chamber", "Broken Bridge", "Ancient Workshop",
-                "Defaced Temple", "Root-Choked Gallery",
+                "Crumbling Hall",
+                "Overgrown Library",
+                "Collapsed Throne Room",
+                "Mossy Courtyard",
+                "Ruined Barracks",
+                "Flooded Chamber",
+                "Broken Bridge",
+                "Ancient Workshop",
+                "Defaced Temple",
+                "Root-Choked Gallery",
             ],
             DungeonTheme::Sewer => &[
-                "Storm Drain Junction", "Reeking Channel", "Rat Warren", "Overflow Chamber",
-                "Maintenance Tunnel", "Cistern", "Sluice Gate Room", "Fungal Growth",
-                "Collapsed Tunnel", "Drain Outlet",
+                "Storm Drain Junction",
+                "Reeking Channel",
+                "Rat Warren",
+                "Overflow Chamber",
+                "Maintenance Tunnel",
+                "Cistern",
+                "Sluice Gate Room",
+                "Fungal Growth",
+                "Collapsed Tunnel",
+                "Drain Outlet",
             ],
         }
     }
@@ -236,7 +264,8 @@ pub fn generate_dungeon(config: &DungeonConfig) -> GeneratedDungeon {
                 }
                 for &dir in &directions {
                     let opp = opposites[dir];
-                    if !rooms[i].exits.contains_key(opp) && !rooms[alt_target].exits.contains_key(dir)
+                    if !rooms[i].exits.contains_key(opp)
+                        && !rooms[alt_target].exits.contains_key(dir)
                     {
                         rooms[i]
                             .exits
@@ -259,7 +288,8 @@ pub fn generate_dungeon(config: &DungeonConfig) -> GeneratedDungeon {
             let extra_dirs = [("up", "down"), ("down", "up")];
             for &alt_target in &connected_rooms {
                 for &(dir, opp) in &extra_dirs {
-                    if !rooms[i].exits.contains_key(opp) && !rooms[alt_target].exits.contains_key(dir)
+                    if !rooms[i].exits.contains_key(opp)
+                        && !rooms[alt_target].exits.contains_key(dir)
                     {
                         rooms[i]
                             .exits
@@ -294,12 +324,8 @@ pub fn generate_dungeon(config: &DungeonConfig) -> GeneratedDungeon {
         let opp = opposites[dir];
 
         if !rooms[a].exits.contains_key(dir) && !rooms[b].exits.contains_key(opp) {
-            rooms[a]
-                .exits
-                .insert(dir.to_string(), room_ids[b].clone());
-            rooms[b]
-                .exits
-                .insert(opp.to_string(), room_ids[a].clone());
+            rooms[a].exits.insert(dir.to_string(), room_ids[b].clone());
+            rooms[b].exits.insert(opp.to_string(), room_ids[a].clone());
         }
     }
 
@@ -376,8 +402,14 @@ mod tests {
         let dungeon = generate_dungeon(&config);
 
         assert_eq!(dungeon.rooms.len(), 10, "should generate 10 rooms");
-        assert!(dungeon.rooms[0].name.contains("Entrance"), "first room should be entrance");
-        assert_eq!(dungeon.rooms[9].name, "Boss Chamber", "last room should be boss");
+        assert!(
+            dungeon.rooms[0].name.contains("Entrance"),
+            "first room should be entrance"
+        );
+        assert_eq!(
+            dungeon.rooms[9].name, "Boss Chamber",
+            "last room should be boss"
+        );
     }
 
     #[test]

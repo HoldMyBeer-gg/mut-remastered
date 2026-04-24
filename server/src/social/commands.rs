@@ -7,7 +7,6 @@ use sqlx::SqlitePool;
 use tracing::warn;
 
 use crate::inventory::types::ItemTemplate;
-use crate::world::types::RoomId;
 use protocol::world::{EquippedInfo, ServerMsg};
 
 /// Handle the LookAt command: inspect another player in the same room.
@@ -19,7 +18,7 @@ pub async fn handle_look_at(
     item_templates: &Arc<HashMap<String, ItemTemplate>>,
 ) -> ServerMsg {
     // Find the target character in the same room
-    let (room_id, target_char_id) = {
+    let (_room_id, target_char_id) = {
         let w = world.read().await;
         let my_room = match w.player_positions.get(character_id) {
             Some(r) => r.clone(),
@@ -56,7 +55,7 @@ pub async fn handle_look_at(
 
     // Query character info
     let row: Option<(String, String, String, i64, String, String)> = sqlx::query_as(
-        "SELECT name, race, class, level, description, bio FROM characters WHERE id = ?"
+        "SELECT name, race, class, level, description, bio FROM characters WHERE id = ?",
     )
     .bind(&target_char_id)
     .fetch_optional(db)
@@ -74,7 +73,7 @@ pub async fn handle_look_at(
 
     // Get equipped items
     let equipped_rows: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT id, template_id, slot FROM items WHERE character_id = ? AND slot IS NOT NULL"
+        "SELECT id, template_id, slot FROM items WHERE character_id = ? AND slot IS NOT NULL",
     )
     .bind(&target_char_id)
     .fetch_all(db)
@@ -109,11 +108,7 @@ pub async fn handle_look_at(
 }
 
 /// Handle the SetDescription command: set visible character description (max 500 chars).
-pub async fn handle_set_description(
-    db: &SqlitePool,
-    character_id: &str,
-    text: &str,
-) -> ServerMsg {
+pub async fn handle_set_description(db: &SqlitePool, character_id: &str, text: &str) -> ServerMsg {
     if text.len() > 500 {
         return ServerMsg::WorldActionFail {
             reason: "Description must be 500 characters or fewer.".to_string(),
@@ -154,7 +149,7 @@ pub async fn handle_toggle_channel(
 
     // Check current state
     let current: Option<(bool,)> = sqlx::query_as(
-        "SELECT enabled FROM channel_toggles WHERE character_id = ? AND channel = ?"
+        "SELECT enabled FROM channel_toggles WHERE character_id = ? AND channel = ?",
     )
     .bind(character_id)
     .bind(channel)
@@ -169,7 +164,7 @@ pub async fn handle_toggle_channel(
     };
 
     let _ = sqlx::query(
-        "INSERT OR REPLACE INTO channel_toggles (character_id, channel, enabled) VALUES (?, ?, ?)"
+        "INSERT OR REPLACE INTO channel_toggles (character_id, channel, enabled) VALUES (?, ?, ?)",
     )
     .bind(character_id)
     .bind(channel)
@@ -184,13 +179,9 @@ pub async fn handle_toggle_channel(
 }
 
 /// Check if a channel is enabled for a character (default: true).
-pub async fn is_channel_enabled(
-    db: &SqlitePool,
-    character_id: &str,
-    channel: &str,
-) -> bool {
+pub async fn is_channel_enabled(db: &SqlitePool, character_id: &str, channel: &str) -> bool {
     let row: Option<(bool,)> = sqlx::query_as(
-        "SELECT enabled FROM channel_toggles WHERE character_id = ? AND channel = ?"
+        "SELECT enabled FROM channel_toggles WHERE character_id = ? AND channel = ?",
     )
     .bind(character_id)
     .bind(channel)

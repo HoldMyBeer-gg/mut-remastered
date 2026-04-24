@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, RwLock};
 
 use server::combat::manager::CombatManager;
 use server::combat::tick::{combat_tick_loop, load_monster_templates, spawn_initial_monsters};
 use server::combat::types::SpawnEntry;
 use server::config::ServerConfig;
-use server::net::listener::{AppState, run_listener};
+use server::net::listener::{run_listener, AppState};
 use server::world::types::{RoomId, WorldEvent};
 use tracing_subscriber::EnvFilter;
 
@@ -49,7 +49,10 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Load monster templates from data file
-    let data_dir = Path::new(&config.worlds_dir).parent().unwrap_or(Path::new("..")).join("data");
+    let data_dir = Path::new(&config.worlds_dir)
+        .parent()
+        .unwrap_or(Path::new(".."))
+        .join("data");
     let monsters_path = data_dir.join("monsters.toml");
     let monster_templates = if monsters_path.exists() {
         let templates = load_monster_templates(&monsters_path)?;
@@ -74,7 +77,11 @@ async fn main() -> anyhow::Result<()> {
     // Spawn initial monsters
     let active_monsters = spawn_initial_monsters(&spawn_tables, &monster_templates);
     let total_monsters: usize = active_monsters.values().map(|v| v.len()).sum();
-    tracing::info!(monsters = total_monsters, rooms = active_monsters.len(), "initial monsters spawned");
+    tracing::info!(
+        monsters = total_monsters,
+        rooms = active_monsters.len(),
+        "initial monsters spawned"
+    );
 
     let world = Arc::new(RwLock::new(world));
     let room_channels = Arc::new(RwLock::new(room_channels_map));

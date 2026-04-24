@@ -64,9 +64,9 @@ pub fn render_dungeon_view(f: &mut Frame, state: &GameState, area: Rect) {
     let layers = [
         (0.15, '░', Color::Rgb(60, 60, 80)),    // far
         (0.25, '▒', Color::Rgb(80, 80, 100)),   // mid-far
-        (0.35, '▓', Color::Rgb(100, 100, 120)),  // mid
-        (0.50, '█', Color::Rgb(130, 130, 150)),  // mid-near
-        (0.70, '█', Color::Rgb(160, 160, 180)),  // near
+        (0.35, '▓', Color::Rgb(100, 100, 120)), // mid
+        (0.50, '█', Color::Rgb(130, 130, 150)), // mid-near
+        (0.70, '█', Color::Rgb(160, 160, 180)), // near
     ];
 
     // Draw back wall (if no forward exit)
@@ -87,8 +87,12 @@ pub fn render_dungeon_view(f: &mut Frame, state: &GameState, area: Rect) {
         // Door frame outline
         for x in wall_left..wall_right {
             if x < w {
-                if wall_top < h { buf[wall_top][x] = ('▄', Color::Rgb(140, 130, 120)); }
-                if wall_bottom < h { buf[wall_bottom.min(h-1)][x] = ('▀', Color::Rgb(140, 130, 120)); }
+                if wall_top < h {
+                    buf[wall_top][x] = ('▄', Color::Rgb(140, 130, 120));
+                }
+                if wall_bottom < h {
+                    buf[wall_bottom.min(h - 1)][x] = ('▀', Color::Rgb(140, 130, 120));
+                }
             }
         }
     } else {
@@ -138,13 +142,13 @@ pub fn render_dungeon_view(f: &mut Frame, state: &GameState, area: Rect) {
         // Doorframe
         for y in opening_top..opening_bottom {
             if opening_width < w {
-                buf[y][opening_width.min(w-1)] = ('│', Color::Rgb(150, 140, 130));
+                buf[y][opening_width.min(w - 1)] = ('│', Color::Rgb(150, 140, 130));
             }
         }
         if opening_width < w {
             for x in 0..opening_width.min(w) {
                 buf[opening_top][x] = ('▄', Color::Rgb(150, 140, 130));
-                buf[opening_bottom.min(h-1)][x] = ('▀', Color::Rgb(150, 140, 130));
+                buf[opening_bottom.min(h - 1)][x] = ('▀', Color::Rgb(150, 140, 130));
             }
         }
         // "W" label
@@ -172,7 +176,7 @@ pub fn render_dungeon_view(f: &mut Frame, state: &GameState, area: Rect) {
         }
         for x in opening_start..w {
             buf[opening_top][x] = ('▄', Color::Rgb(150, 140, 130));
-            buf[opening_bottom.min(h-1)][x] = ('▀', Color::Rgb(150, 140, 130));
+            buf[opening_bottom.min(h - 1)][x] = ('▀', Color::Rgb(150, 140, 130));
         }
         // "E" label
         let label_x = opening_start + opening_width / 2;
@@ -187,7 +191,9 @@ pub fn render_dungeon_view(f: &mut Frame, state: &GameState, area: Rect) {
         let arrow_y = mid_y.saturating_sub(2);
         if arrow_y < h && arrow_x < w {
             buf[arrow_y][arrow_x] = ('N', Color::Yellow);
-            if arrow_y + 1 < h { buf[arrow_y + 1][arrow_x] = ('↑', Color::Yellow); }
+            if arrow_y + 1 < h {
+                buf[arrow_y + 1][arrow_x] = ('↑', Color::Yellow);
+            }
         }
     }
 
@@ -201,12 +207,16 @@ pub fn render_dungeon_view(f: &mut Frame, state: &GameState, area: Rect) {
     }
 
     // Draw monsters in the room
-    let monster_chars = ['🐀', '👹', '🕷', '💀', '🎯'];
+    let _monster_chars = ['🐀', '👹', '🕷', '💀', '🎯'];
     // We can't use emoji easily in the char buffer — use ASCII instead
     // Place monster indicators in the center of the view
     if !state.room_name.is_empty() {
         // Check game log for recent monster sightings
-        let monster_count = state.game_log.iter().rev().take(10)
+        let monster_count = state
+            .game_log
+            .iter()
+            .rev()
+            .take(10)
             .filter(|l| l.contains("You see a"))
             .count();
         if monster_count > 0 {
@@ -244,15 +254,25 @@ pub fn render_dungeon_view(f: &mut Frame, state: &GameState, area: Rect) {
 }
 
 fn ceiling_shade(dist: f64) -> char {
-    if dist > 0.8 { ' ' }
-    else if dist > 0.5 { '·' }
-    else if dist > 0.3 { '∙' }
-    else { '.' }
+    if dist > 0.8 {
+        ' '
+    } else if dist > 0.5 {
+        '·'
+    } else if dist > 0.3 {
+        '∙'
+    } else {
+        '.'
+    }
 }
 
 fn floor_shade(dist: f64) -> char {
-    if dist > 0.8 { ' ' }
-    else if dist > 0.5 { '·' }
-    else if dist > 0.3 { '∙' }
-    else { '.' }
+    if dist > 0.8 {
+        ' '
+    } else if dist > 0.5 {
+        '·'
+    } else if dist > 0.3 {
+        '∙'
+    } else {
+        '.'
+    }
 }

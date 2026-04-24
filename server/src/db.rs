@@ -12,9 +12,7 @@ pub async fn init_db(database_url: &str) -> anyhow::Result<SqlitePool> {
         .await?;
 
     // Enable foreign keys
-    sqlx::query("PRAGMA foreign_keys=ON")
-        .execute(&pool)
-        .await?;
+    sqlx::query("PRAGMA foreign_keys=ON").execute(&pool).await?;
 
     sqlx::migrate!("./migrations").run(&pool).await?;
     tracing::info!("database initialized and migrations applied");

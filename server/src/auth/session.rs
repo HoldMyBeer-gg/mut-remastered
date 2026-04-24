@@ -26,10 +26,7 @@ pub async fn create_session(
 ///
 /// Returns `Some(account_id)` if the token exists and has not expired.
 /// Returns `None` if the token is not found or expired.
-pub async fn validate_session(
-    pool: &SqlitePool,
-    token: &str,
-) -> anyhow::Result<Option<String>> {
+pub async fn validate_session(pool: &SqlitePool, token: &str) -> anyhow::Result<Option<String>> {
     let row = sqlx::query_as::<_, (String,)>(
         "SELECT account_id FROM sessions WHERE token = ?1 AND expires_at > unixepoch()",
     )

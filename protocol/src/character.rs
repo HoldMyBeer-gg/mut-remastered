@@ -32,23 +32,11 @@ pub enum ClientMsg {
 /// Server → Client messages for character management.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServerMsg {
-    CharacterListResult {
-        characters: Vec<CharacterSummary>,
-    },
-    CharacterCreateOk {
-        character_id: String,
-        name: String,
-    },
-    CharacterCreateFail {
-        reason: String,
-    },
-    CharacterSelected {
-        character_id: String,
-        name: String,
-    },
-    CharacterSelectFail {
-        reason: String,
-    },
+    CharacterListResult { characters: Vec<CharacterSummary> },
+    CharacterCreateOk { character_id: String, name: String },
+    CharacterCreateFail { reason: String },
+    CharacterSelected { character_id: String, name: String },
+    CharacterSelectFail { reason: String },
 }
 
 /// Summary of a character shown in the selection list.

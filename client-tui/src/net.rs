@@ -7,7 +7,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
 
-use protocol::codec::{decode_message, encode_message};
+use protocol::codec::encode_message;
 
 const MAX_FRAME_SIZE: usize = 64 * 1024;
 

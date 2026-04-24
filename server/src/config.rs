@@ -12,8 +12,7 @@ pub struct ServerConfig {
 impl ServerConfig {
     pub fn from_env() -> Self {
         Self {
-            bind_addr: std::env::var("BIND_ADDR")
-                .unwrap_or_else(|_| "127.0.0.1:4000".to_string()),
+            bind_addr: std::env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:4000".to_string()),
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite://./mut_remastered.db?mode=rwc".to_string()),
             session_ttl_secs: std::env::var("SESSION_TTL_SECS")

@@ -4,8 +4,6 @@
 //! the painter's algorithm with z-depth sorting. Meshes are defined
 //! as vertices + faces (triangles/quads).
 
-use std::f64::consts::PI;
-
 /// A 3D vertex.
 #[derive(Clone, Copy)]
 pub struct Vec3 {
@@ -71,7 +69,9 @@ impl Vec3 {
 
     pub fn normalize(self) -> Vec3 {
         let len = self.length();
-        if len < 1e-10 { return Vec3::new(0.0, 0.0, 1.0); }
+        if len < 1e-10 {
+            return Vec3::new(0.0, 0.0, 1.0);
+        }
         Vec3::new(self.x / len, self.y / len, self.z / len)
     }
 }
@@ -93,7 +93,9 @@ pub struct Mesh {
 fn project(v: &Vec3, screen_w: usize, screen_h: usize, fov: f64) -> Option<(f64, f64, f64)> {
     // Camera is at origin looking down +Z
     let z = v.z;
-    if z < 0.5 { return None; } // Behind camera
+    if z < 0.5 {
+        return None;
+    } // Behind camera
 
     let aspect = screen_w as f64 / (screen_h as f64 * 2.0); // *2 because chars are ~2x tall
     let scale = fov / z;
@@ -152,21 +154,37 @@ pub fn render_mesh(
         }
 
         // Project to screen
-        let p0 = match project(&v0, w, h, fov) { Some(p) => p, None => continue };
-        let p1 = match project(&v1, w, h, fov) { Some(p) => p, None => continue };
-        let p2 = match project(&v2, w, h, fov) { Some(p) => p, None => continue };
+        let p0 = match project(&v0, w, h, fov) {
+            Some(p) => p,
+            None => continue,
+        };
+        let p1 = match project(&v1, w, h, fov) {
+            Some(p) => p,
+            None => continue,
+        };
+        let p2 = match project(&v2, w, h, fov) {
+            Some(p) => p,
+            None => continue,
+        };
 
         // Light direction (from top-left)
         let light = Vec3::new(-0.5, 1.0, -0.3).normalize();
         let brightness = normal.dot(light).max(0.1);
 
         // Choose shade character based on brightness
-        let shade = if brightness > 0.8 { '@' }
-            else if brightness > 0.6 { '#' }
-            else if brightness > 0.45 { '&' }
-            else if brightness > 0.3 { '*' }
-            else if brightness > 0.15 { '+' }
-            else { '.' };
+        let shade = if brightness > 0.8 {
+            '@'
+        } else if brightness > 0.6 {
+            '#'
+        } else if brightness > 0.45 {
+            '&'
+        } else if brightness > 0.3 {
+            '*'
+        } else if brightness > 0.15 {
+            '+'
+        } else {
+            '.'
+        };
 
         // Shade color based on brightness
         let r = (color[0] as f64 * brightness).min(255.0) as u8;
@@ -182,7 +200,8 @@ pub fn render_mesh(
 fn rasterize_triangle(
     buf: &mut Vec<Vec<(char, [u8; 3])>>,
     zbuf: &mut Vec<Vec<f64>>,
-    w: usize, h: usize,
+    w: usize,
+    h: usize,
     p0: (f64, f64, f64),
     p1: (f64, f64, f64),
     p2: (f64, f64, f64),
@@ -217,13 +236,16 @@ fn rasterize_triangle(
 }
 
 fn barycentric(
-    px: f64, py: f64,
+    px: f64,
+    py: f64,
     p0: (f64, f64, f64),
     p1: (f64, f64, f64),
     p2: (f64, f64, f64),
 ) -> (f64, f64, f64) {
     let d = (p1.1 - p2.1) * (p0.0 - p2.0) + (p2.0 - p1.0) * (p0.1 - p2.1);
-    if d.abs() < 1e-10 { return (-1.0, -1.0, -1.0); }
+    if d.abs() < 1e-10 {
+        return (-1.0, -1.0, -1.0);
+    }
     let w0 = ((p1.1 - p2.1) * (px - p2.0) + (p2.0 - p1.0) * (py - p2.1)) / d;
     let w1 = ((p2.1 - p0.1) * (px - p2.0) + (p0.0 - p2.0) * (py - p2.1)) / d;
     let w2 = 1.0 - w0 - w1;
@@ -236,24 +258,70 @@ fn barycentric(
 pub fn create_cube() -> Mesh {
     let s = 1.0;
     let vertices = vec![
-        Vec3::new(-s, -s, -s), Vec3::new( s, -s, -s),
-        Vec3::new( s,  s, -s), Vec3::new(-s,  s, -s),
-        Vec3::new(-s, -s,  s), Vec3::new( s, -s,  s),
-        Vec3::new( s,  s,  s), Vec3::new(-s,  s,  s),
+        Vec3::new(-s, -s, -s),
+        Vec3::new(s, -s, -s),
+        Vec3::new(s, s, -s),
+        Vec3::new(-s, s, -s),
+        Vec3::new(-s, -s, s),
+        Vec3::new(s, -s, s),
+        Vec3::new(s, s, s),
+        Vec3::new(-s, s, s),
     ];
     let faces = vec![
         // Front
-        Face { v: [0, 1, 2], shade_char: '#' }, Face { v: [0, 2, 3], shade_char: '#' },
+        Face {
+            v: [0, 1, 2],
+            shade_char: '#',
+        },
+        Face {
+            v: [0, 2, 3],
+            shade_char: '#',
+        },
         // Back
-        Face { v: [5, 4, 7], shade_char: '#' }, Face { v: [5, 7, 6], shade_char: '#' },
+        Face {
+            v: [5, 4, 7],
+            shade_char: '#',
+        },
+        Face {
+            v: [5, 7, 6],
+            shade_char: '#',
+        },
         // Left
-        Face { v: [4, 0, 3], shade_char: '#' }, Face { v: [4, 3, 7], shade_char: '#' },
+        Face {
+            v: [4, 0, 3],
+            shade_char: '#',
+        },
+        Face {
+            v: [4, 3, 7],
+            shade_char: '#',
+        },
         // Right
-        Face { v: [1, 5, 6], shade_char: '#' }, Face { v: [1, 6, 2], shade_char: '#' },
+        Face {
+            v: [1, 5, 6],
+            shade_char: '#',
+        },
+        Face {
+            v: [1, 6, 2],
+            shade_char: '#',
+        },
         // Top
-        Face { v: [3, 2, 6], shade_char: '#' }, Face { v: [3, 6, 7], shade_char: '#' },
+        Face {
+            v: [3, 2, 6],
+            shade_char: '#',
+        },
+        Face {
+            v: [3, 6, 7],
+            shade_char: '#',
+        },
         // Bottom
-        Face { v: [4, 5, 1], shade_char: '#' }, Face { v: [4, 1, 0], shade_char: '#' },
+        Face {
+            v: [4, 5, 1],
+            shade_char: '#',
+        },
+        Face {
+            v: [4, 1, 0],
+            shade_char: '#',
+        },
     ];
     Mesh { vertices, faces }
 }
@@ -261,22 +329,46 @@ pub fn create_cube() -> Mesh {
 /// Create a diamond/gem shape (octahedron).
 pub fn create_diamond() -> Mesh {
     let vertices = vec![
-        Vec3::new( 0.0,  1.2,  0.0), // top
-        Vec3::new( 1.0,  0.0,  0.0), // right
-        Vec3::new( 0.0,  0.0,  1.0), // front
-        Vec3::new(-1.0,  0.0,  0.0), // left
-        Vec3::new( 0.0,  0.0, -1.0), // back
-        Vec3::new( 0.0, -1.2,  0.0), // bottom
+        Vec3::new(0.0, 1.2, 0.0),  // top
+        Vec3::new(1.0, 0.0, 0.0),  // right
+        Vec3::new(0.0, 0.0, 1.0),  // front
+        Vec3::new(-1.0, 0.0, 0.0), // left
+        Vec3::new(0.0, 0.0, -1.0), // back
+        Vec3::new(0.0, -1.2, 0.0), // bottom
     ];
     let faces = vec![
-        Face { v: [0, 1, 2], shade_char: '#' },
-        Face { v: [0, 2, 3], shade_char: '#' },
-        Face { v: [0, 3, 4], shade_char: '#' },
-        Face { v: [0, 4, 1], shade_char: '#' },
-        Face { v: [5, 2, 1], shade_char: '#' },
-        Face { v: [5, 3, 2], shade_char: '#' },
-        Face { v: [5, 4, 3], shade_char: '#' },
-        Face { v: [5, 1, 4], shade_char: '#' },
+        Face {
+            v: [0, 1, 2],
+            shade_char: '#',
+        },
+        Face {
+            v: [0, 2, 3],
+            shade_char: '#',
+        },
+        Face {
+            v: [0, 3, 4],
+            shade_char: '#',
+        },
+        Face {
+            v: [0, 4, 1],
+            shade_char: '#',
+        },
+        Face {
+            v: [5, 2, 1],
+            shade_char: '#',
+        },
+        Face {
+            v: [5, 3, 2],
+            shade_char: '#',
+        },
+        Face {
+            v: [5, 4, 3],
+            shade_char: '#',
+        },
+        Face {
+            v: [5, 1, 4],
+            shade_char: '#',
+        },
     ];
     Mesh { vertices, faces }
 }
@@ -299,7 +391,10 @@ pub fn create_monster() -> Mesh {
     // Right leg
     add_box(&mut verts, &mut faces, 0.3, -1.3, 0.0, 0.25, 0.6, 0.3);
 
-    Mesh { vertices: verts, faces }
+    Mesh {
+        vertices: verts,
+        faces,
+    }
 }
 
 /// Create a sword shape.
@@ -312,15 +407,22 @@ pub fn create_sword() -> Mesh {
     add_box(&mut verts, &mut faces, 0.0, -0.1, 0.0, 0.4, 0.08, 0.08);
     // Handle
     add_box(&mut verts, &mut faces, 0.0, -0.6, 0.0, 0.06, 0.4, 0.06);
-    Mesh { vertices: verts, faces }
+    Mesh {
+        vertices: verts,
+        faces,
+    }
 }
 
 /// Helper: add a box centered at (cx, cy, cz) with half-extents (hx, hy, hz).
 fn add_box(
     verts: &mut Vec<Vec3>,
     faces: &mut Vec<Face>,
-    cx: f64, cy: f64, cz: f64,
-    hx: f64, hy: f64, hz: f64,
+    cx: f64,
+    cy: f64,
+    cz: f64,
+    hx: f64,
+    hy: f64,
+    hz: f64,
 ) {
     let base = verts.len();
     verts.push(Vec3::new(cx - hx, cy - hy, cz - hz));
@@ -332,13 +434,22 @@ fn add_box(
     verts.push(Vec3::new(cx + hx, cy + hy, cz + hz));
     verts.push(Vec3::new(cx - hx, cy + hy, cz + hz));
 
-    let f = |a, b, c| Face { v: [base + a, base + b, base + c], shade_char: '#' };
-    faces.push(f(0, 1, 2)); faces.push(f(0, 2, 3));
-    faces.push(f(5, 4, 7)); faces.push(f(5, 7, 6));
-    faces.push(f(4, 0, 3)); faces.push(f(4, 3, 7));
-    faces.push(f(1, 5, 6)); faces.push(f(1, 6, 2));
-    faces.push(f(3, 2, 6)); faces.push(f(3, 6, 7));
-    faces.push(f(4, 5, 1)); faces.push(f(4, 1, 0));
+    let f = |a, b, c| Face {
+        v: [base + a, base + b, base + c],
+        shade_char: '#',
+    };
+    faces.push(f(0, 1, 2));
+    faces.push(f(0, 2, 3));
+    faces.push(f(5, 4, 7));
+    faces.push(f(5, 7, 6));
+    faces.push(f(4, 0, 3));
+    faces.push(f(4, 3, 7));
+    faces.push(f(1, 5, 6));
+    faces.push(f(1, 6, 2));
+    faces.push(f(3, 2, 6));
+    faces.push(f(3, 6, 7));
+    faces.push(f(4, 5, 1));
+    faces.push(f(4, 1, 0));
 }
 
 /// Create a treasure chest shape.
@@ -351,7 +462,10 @@ pub fn create_chest() -> Mesh {
     add_box(&mut verts, &mut faces, 0.0, 0.3, -0.1, 0.8, 0.15, 0.45);
     // Lock
     add_box(&mut verts, &mut faces, 0.0, 0.0, 0.55, 0.15, 0.15, 0.05);
-    Mesh { vertices: verts, faces }
+    Mesh {
+        vertices: verts,
+        faces,
+    }
 }
 
 /// Create a skull shape (sphere-ish with jaw).
@@ -368,7 +482,10 @@ pub fn create_skull() -> Mesh {
     add_box(&mut verts, &mut faces, -0.25, 0.2, 0.55, 0.15, 0.15, 0.1);
     // Right eye socket
     add_box(&mut verts, &mut faces, 0.25, 0.2, 0.55, 0.15, 0.15, 0.1);
-    Mesh { vertices: verts, faces }
+    Mesh {
+        vertices: verts,
+        faces,
+    }
 }
 
 /// Create a potion bottle shape.
@@ -381,5 +498,8 @@ pub fn create_potion() -> Mesh {
     add_box(&mut verts, &mut faces, 0.0, 0.5, 0.0, 0.1, 0.3, 0.1);
     // Cork
     add_box(&mut verts, &mut faces, 0.0, 0.85, 0.0, 0.12, 0.08, 0.12);
-    Mesh { vertices: verts, faces }
+    Mesh {
+        vertices: verts,
+        faces,
+    }
 }

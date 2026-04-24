@@ -150,7 +150,7 @@ pub fn calculate_initial_stats(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::character::types::{Race, Class};
+    use crate::character::types::{Class, Race};
 
     #[test]
     fn test_validate_point_buy_standard() {
@@ -220,12 +220,8 @@ mod tests {
         // HP = 10 + 3 (CON mod) + 1 (Dwarf HP bonus) = 14
         // Mana = 10 + (-1) * 2 = 8 (INT 8 → mod -1)
         // Stamina = 10 + 3 * 2 = 16
-        let stats = calculate_initial_stats(
-            &Race::Dwarf,
-            &Class::Warrior,
-            &[15, 10, 15, 8, 10, 8],
-            &[],
-        );
+        let stats =
+            calculate_initial_stats(&Race::Dwarf, &Class::Warrior, &[15, 10, 15, 8, 10, 8], &[]);
         assert_eq!(stats.final_scores, [15, 10, 17, 8, 10, 8]);
         assert_eq!(stats.hp, 14);
         assert_eq!(stats.max_hp, 14);
@@ -243,12 +239,8 @@ mod tests {
         // HP = 6 + 1 = 7
         // Mana = 10 + 2 * 2 = 14
         // Stamina = 10 + 1 * 2 = 12
-        let stats = calculate_initial_stats(
-            &Race::Elf,
-            &Class::Mage,
-            &[8, 14, 12, 15, 10, 10],
-            &[],
-        );
+        let stats =
+            calculate_initial_stats(&Race::Elf, &Class::Mage, &[8, 14, 12, 15, 10, 10], &[]);
         assert_eq!(stats.final_scores, [8, 16, 12, 15, 10, 10]);
         assert_eq!(stats.hp, 7);
         assert_eq!(stats.mana, 14);

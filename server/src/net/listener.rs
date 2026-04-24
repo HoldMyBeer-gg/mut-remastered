@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use sqlx::SqlitePool;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, RwLock};
 use tracing::{info, warn};
 
 use crate::combat::manager::CombatManager;

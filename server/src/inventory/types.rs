@@ -1,7 +1,7 @@
 //! Item template types and body slot definitions.
 
-use std::collections::HashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 /// Top-level TOML structure for the items data file.
 #[derive(Debug, Deserialize)]
@@ -45,8 +45,8 @@ impl ItemTemplate {
 
 /// Valid body slots for equipment.
 pub const BODY_SLOTS: &[&str] = &[
-    "head", "neck", "body", "arms", "hands", "legs", "feet",
-    "ring_1", "ring_2", "weapon", "offhand",
+    "head", "neck", "body", "arms", "hands", "legs", "feet", "ring_1", "ring_2", "weapon",
+    "offhand",
 ];
 
 /// Check if a slot name is valid.

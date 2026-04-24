@@ -67,8 +67,12 @@ impl CharSelectState {
     }
 }
 
-pub const RACES: &[&str] = &["human", "elf", "dwarf", "halfling", "orc", "gnome", "half_elf", "tiefling"];
-pub const RACE_NAMES: &[&str] = &["Human", "Elf", "Dwarf", "Halfling", "Orc", "Gnome", "Half-Elf", "Tiefling"];
+pub const RACES: &[&str] = &[
+    "human", "elf", "dwarf", "halfling", "orc", "gnome", "half_elf", "tiefling",
+];
+pub const RACE_NAMES: &[&str] = &[
+    "Human", "Elf", "Dwarf", "Halfling", "Orc", "Gnome", "Half-Elf", "Tiefling",
+];
 pub const CLASSES: &[&str] = &["warrior", "ranger", "cleric", "mage", "rogue"];
 pub const CLASS_NAMES: &[&str] = &["Warrior", "Ranger", "Cleric", "Mage", "Rogue"];
 pub const GENDERS: &[&str] = &["male", "female", "non_binary"];

@@ -74,10 +74,20 @@ pub enum ServerMsg {
         equipped: Vec<EquippedInfo>,
         gold: i32,
     },
-    GetItemOk { item_name: String },
-    DropItemOk { item_name: String },
-    EquipOk { item_name: String, slot: String },
-    UnequipOk { slot: String, item_name: String },
+    GetItemOk {
+        item_name: String,
+    },
+    DropItemOk {
+        item_name: String,
+    },
+    EquipOk {
+        item_name: String,
+        slot: String,
+    },
+    UnequipOk {
+        slot: String,
+        item_name: String,
+    },
     /// Character stats display.
     StatsResult {
         name: String,
@@ -102,7 +112,9 @@ pub enum ServerMsg {
     },
     BioOk,
     /// Generic failure for world/inventory actions.
-    WorldActionFail { reason: String },
+    WorldActionFail {
+        reason: String,
+    },
     /// Chat message from a channel (say, gossip).
     ChatMessage {
         channel: String,
@@ -110,11 +122,20 @@ pub enum ServerMsg {
         text: String,
     },
     /// Emote from a player.
-    EmoteMessage { sender: String, text: String },
+    EmoteMessage {
+        sender: String,
+        text: String,
+    },
     /// Private whisper received.
-    WhisperMessage { from: String, text: String },
+    WhisperMessage {
+        from: String,
+        text: String,
+    },
     /// Whisper sent confirmation.
-    WhisperSent { to: String, text: String },
+    WhisperSent {
+        to: String,
+        text: String,
+    },
     /// Result of inspecting another player.
     LookAtResult {
         name: String,
@@ -128,7 +149,10 @@ pub enum ServerMsg {
     /// Character description updated.
     DescriptionOk,
     /// Channel toggle confirmation.
-    ChannelToggled { channel: String, enabled: bool },
+    ChannelToggled {
+        channel: String,
+        enabled: bool,
+    },
 }
 
 /// Info about an item in inventory (not equipped).

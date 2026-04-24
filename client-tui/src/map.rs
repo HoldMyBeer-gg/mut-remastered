@@ -19,8 +19,8 @@ struct GridPos {
 }
 
 /// Room dimensions on the character grid.
-const ROOM_W: i32 = 7;  // width of a room box (including borders)
-const ROOM_H: i32 = 3;  // height of a room box
+const ROOM_W: i32 = 7; // width of a room box (including borders)
+const ROOM_H: i32 = 3; // height of a room box
 const CORR_LEN: i32 = 3; // corridor length between rooms
 const CELL_W: i32 = ROOM_W + CORR_LEN; // total horizontal spacing
 const CELL_H: i32 = ROOM_H + CORR_LEN; // total vertical spacing
@@ -35,7 +35,7 @@ enum Cell {
     Corridor,
     Player,
     Monster,
-    Fog,         // unexplored adjacent room
+    Fog, // unexplored adjacent room
     FogWall,
 }
 
@@ -57,12 +57,13 @@ pub fn render_map(f: &mut Frame, state: &GameState, area: Rect) {
     let grid = build_grid(state);
 
     // Find the current room's grid position (always at origin)
-    let player_grid = GridPos { x: 0, y: 0 };
+    let _player_grid = GridPos { x: 0, y: 0 };
 
     // Create character buffer
     let buf_w = inner.width as i32;
     let buf_h = inner.height as i32;
-    let mut char_buf: Vec<Vec<(char, Color)>> = vec![vec![(' ', Color::DarkGray); buf_w as usize]; buf_h as usize];
+    let mut char_buf: Vec<Vec<(char, Color)>> =
+        vec![vec![(' ', Color::DarkGray); buf_w as usize]; buf_h as usize];
 
     // Center offset: place player_grid at center of buffer
     let cx = buf_w / 2;
@@ -193,12 +194,22 @@ fn dir_to_delta(dir: &str) -> (i32, i32) {
 /// Draw a room box at screen position (sx, sy).
 fn draw_room(
     buf: &mut [Vec<(char, Color)>],
-    sx: i32, sy: i32,
-    buf_w: i32, buf_h: i32,
+    sx: i32,
+    sy: i32,
+    buf_w: i32,
+    buf_h: i32,
     is_current: bool,
 ) {
-    let wall_color = if is_current { Color::Cyan } else { Color::White };
-    let floor_color = if is_current { Color::Gray } else { Color::DarkGray };
+    let wall_color = if is_current {
+        Color::Cyan
+    } else {
+        Color::White
+    };
+    let floor_color = if is_current {
+        Color::Gray
+    } else {
+        Color::DarkGray
+    };
 
     // Top wall: ┌─────┐
     set_cell(buf, sx, sy, '┌', wall_color, buf_w, buf_h);
@@ -221,15 +232,19 @@ fn draw_room(
     for x in 1..ROOM_W - 1 {
         set_cell(buf, sx + x, sy + ROOM_H - 1, '─', wall_color, buf_w, buf_h);
     }
-    set_cell(buf, sx + ROOM_W - 1, sy + ROOM_H - 1, '┘', wall_color, buf_w, buf_h);
+    set_cell(
+        buf,
+        sx + ROOM_W - 1,
+        sy + ROOM_H - 1,
+        '┘',
+        wall_color,
+        buf_w,
+        buf_h,
+    );
 }
 
 /// Draw a fog-of-war room (unexplored).
-fn draw_fog_room(
-    buf: &mut [Vec<(char, Color)>],
-    sx: i32, sy: i32,
-    buf_w: i32, buf_h: i32,
-) {
+fn draw_fog_room(buf: &mut [Vec<(char, Color)>], sx: i32, sy: i32, buf_w: i32, buf_h: i32) {
     let fog_color = Color::DarkGray;
     // Just draw a dim ? in the center
     let cx = sx + ROOM_W / 2;
@@ -240,9 +255,12 @@ fn draw_fog_room(
 /// Draw a corridor from a room in a given direction.
 fn draw_corridor(
     buf: &mut [Vec<(char, Color)>],
-    room_sx: i32, room_sy: i32,
-    dx: i32, dy: i32,
-    buf_w: i32, buf_h: i32,
+    room_sx: i32,
+    room_sy: i32,
+    dx: i32,
+    dy: i32,
+    buf_w: i32,
+    buf_h: i32,
 ) {
     let color = Color::DarkGray;
     let mid_y = room_sy + ROOM_H / 2;
@@ -255,7 +273,15 @@ fn draw_corridor(
             set_cell(buf, start_x + i, mid_y, '·', color, buf_w, buf_h);
         }
         // Door on room wall
-        set_cell(buf, room_sx + ROOM_W - 1, mid_y, '╡', Color::Yellow, buf_w, buf_h);
+        set_cell(
+            buf,
+            room_sx + ROOM_W - 1,
+            mid_y,
+            '╡',
+            Color::Yellow,
+            buf_w,
+            buf_h,
+        );
     } else if dx < 0 {
         // West corridor
         let start_x = room_sx - CORR_LEN;
@@ -276,16 +302,27 @@ fn draw_corridor(
         for i in 0..CORR_LEN {
             set_cell(buf, mid_x, start_y + i, '·', color, buf_w, buf_h);
         }
-        set_cell(buf, mid_x, room_sy + ROOM_H - 1, '╧', Color::Yellow, buf_w, buf_h);
+        set_cell(
+            buf,
+            mid_x,
+            room_sy + ROOM_H - 1,
+            '╧',
+            Color::Yellow,
+            buf_w,
+            buf_h,
+        );
     }
 }
 
 /// Set a character in the buffer (bounds-checked).
 fn set_cell(
     buf: &mut [Vec<(char, Color)>],
-    x: i32, y: i32,
-    ch: char, color: Color,
-    buf_w: i32, buf_h: i32,
+    x: i32,
+    y: i32,
+    ch: char,
+    color: Color,
+    buf_w: i32,
+    buf_h: i32,
 ) {
     if x >= 0 && y >= 0 && x < buf_w && y < buf_h {
         buf[y as usize][x as usize] = (ch, color);

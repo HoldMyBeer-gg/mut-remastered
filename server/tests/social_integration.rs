@@ -34,7 +34,11 @@ async fn test_say_local_chat() {
                 "should contain sender name and text, got: {:?}",
                 message
             );
-            assert!(message.contains("[IC]"), "say should be marked IC, got: {:?}", message);
+            assert!(
+                message.contains("[IC]"),
+                "say should be marked IC, got: {:?}",
+                message
+            );
         }
         other => panic!("expected WorldEvent for say, got {:?}", other),
     }
@@ -140,9 +144,7 @@ async fn test_look_at_player() {
     let resp = player_a.recv_world().await;
     match resp {
         WorldServerMsg::LookAtResult {
-            name,
-            description,
-            ..
+            name, description, ..
         } => {
             assert_eq!(name, "Target");
             assert!(

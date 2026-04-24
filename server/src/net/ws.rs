@@ -5,11 +5,11 @@
 //! WebSocket messages are binary frames containing the same [ns][postcard] payload.
 
 use axum::{
-    Router,
-    extract::State,
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
+    extract::State,
     response::IntoResponse,
     routing::get,
+    Router,
 };
 use futures_util::{SinkExt, StreamExt};
 use tower_http::cors::CorsLayer;
@@ -30,10 +30,7 @@ pub async fn run_ws_server(addr: &str, state: AppState) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_ws_connection(socket, state))
 }
 

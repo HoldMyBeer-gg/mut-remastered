@@ -25,8 +25,14 @@ async fn test_look_returns_room_description() {
             ..
         } => {
             assert!(!name.is_empty(), "room name should not be empty");
-            assert!(!description.is_empty(), "room description should not be empty");
-            assert!(!exits.is_empty(), "starting room should have at least one exit");
+            assert!(
+                !description.is_empty(),
+                "room description should not be empty"
+            );
+            assert!(
+                !exits.is_empty(),
+                "starting room should have at least one exit"
+            );
         }
         other => panic!("expected RoomDescription, got {:?}", other),
     }
@@ -66,7 +72,12 @@ async fn test_move_cardinal_direction() {
     // Auto-look response after move
     let room_desc = client.recv_world().await;
     match room_desc {
-        WorldServerMsg::RoomDescription { room_id, name, description, .. } => {
+        WorldServerMsg::RoomDescription {
+            room_id,
+            name,
+            description,
+            ..
+        } => {
             assert_ne!(room_id, start_room_id);
             assert!(!name.is_empty());
             assert!(!description.is_empty());
@@ -194,7 +205,9 @@ async fn test_hints_shown_to_new_player() {
     let mut client = server.connect().await;
 
     let username = format!("user_{}", uuid::Uuid::new_v4().simple());
-    client.full_setup(&username, "password", "NewbieHints").await;
+    client
+        .full_setup(&username, "password", "NewbieHints")
+        .await;
 
     client.send_look().await;
     let resp = client.recv_world().await;
@@ -216,7 +229,9 @@ async fn test_hints_suppressed_after_tutorial() {
     let mut client2 = server2.connect().await;
 
     let username = format!("user_{}", uuid::Uuid::new_v4().simple());
-    client2.full_setup(&username, "password", "TutorialDone").await;
+    client2
+        .full_setup(&username, "password", "TutorialDone")
+        .await;
 
     // Navigate: entrance -> north -> courtyard -> west -> garden
     client2.send_move("north").await;
@@ -232,7 +247,10 @@ async fn test_hints_suppressed_after_tutorial() {
     let interact_resp = client2.recv_world().await;
     match &interact_resp {
         WorldServerMsg::InteractResult { text } => {
-            assert!(!text.is_empty(), "tutorial completion trigger should return a message");
+            assert!(
+                !text.is_empty(),
+                "tutorial completion trigger should return a message"
+            );
         }
         other => panic!("expected InteractResult, got {:?}", other),
     }
@@ -242,7 +260,10 @@ async fn test_hints_suppressed_after_tutorial() {
     let look_resp = client2.recv_world().await;
     match look_resp {
         WorldServerMsg::RoomDescription { hints, .. } => {
-            assert!(hints.is_empty(), "hints should be suppressed after tutorial completion");
+            assert!(
+                hints.is_empty(),
+                "hints should be suppressed after tutorial completion"
+            );
         }
         other => panic!("expected RoomDescription, got {:?}", other),
     }
@@ -257,7 +278,9 @@ async fn test_examine_returns_lore() {
     let mut client = server.connect().await;
 
     let username = format!("user_{}", uuid::Uuid::new_v4().simple());
-    client.full_setup(&username, "password", "LoreExplorer").await;
+    client
+        .full_setup(&username, "password", "LoreExplorer")
+        .await;
 
     client.send_examine("room").await;
     let resp = client.recv_world().await;
@@ -280,9 +303,13 @@ async fn test_examine_unknown_target() {
     let mut client = server.connect().await;
 
     let username = format!("user_{}", uuid::Uuid::new_v4().simple());
-    client.full_setup(&username, "password", "UnknownExamine").await;
+    client
+        .full_setup(&username, "password", "UnknownExamine")
+        .await;
 
-    client.send_examine("nonexistent_purple_dragon_statue").await;
+    client
+        .send_examine("nonexistent_purple_dragon_statue")
+        .await;
     let resp = client.recv_world().await;
     match resp {
         WorldServerMsg::ExamineResult { text } => {
@@ -301,7 +328,9 @@ async fn test_trigger_fires_and_persists() {
     let mut client = server.connect().await;
 
     let username = format!("user_{}", uuid::Uuid::new_v4().simple());
-    client.full_setup(&username, "password", "TriggerTest").await;
+    client
+        .full_setup(&username, "password", "TriggerTest")
+        .await;
 
     // First pull
     client.send_interact("pull lever").await;
@@ -353,8 +382,12 @@ async fn test_trigger_broadcasts_to_room() {
     let char_name_a = "BroadcastAlpha";
     let char_name_b = "BroadcastBeta";
 
-    player_a.full_setup(&username_a, "password", &char_name_a).await;
-    player_b.full_setup(&username_b, "password", &char_name_b).await;
+    player_a
+        .full_setup(&username_a, "password", &char_name_a)
+        .await;
+    player_b
+        .full_setup(&username_b, "password", &char_name_b)
+        .await;
 
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
@@ -373,7 +406,9 @@ async fn test_trigger_broadcasts_to_room() {
     match b_event {
         WorldServerMsg::WorldEvent { message } => {
             assert!(
-                message.contains(char_name_a) || message.contains("fountain") || message.contains("glow"),
+                message.contains(char_name_a)
+                    || message.contains("fountain")
+                    || message.contains("glow"),
                 "broadcast should reference the character name or the event, got: {:?}",
                 message
             );

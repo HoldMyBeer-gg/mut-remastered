@@ -6,7 +6,7 @@ use protocol::auth::{ClientMsg, ServerMsg};
 use protocol::codec::{decode_message, encode_message, NS_AUTH, NS_CHAR, NS_WORLD};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, RwLock};
 
 use server::world::types::{RoomId, WorldEvent};
 
@@ -364,8 +364,8 @@ impl TestClient {
 
     /// Encode and send a combat `ClientMsg` to the server.
     pub async fn send_combat(&mut self, msg: &protocol::combat::ClientMsg) {
-        let bytes =
-            encode_message(protocol::codec::NS_COMBAT, msg).expect("failed to encode combat ClientMsg");
+        let bytes = encode_message(protocol::codec::NS_COMBAT, msg)
+            .expect("failed to encode combat ClientMsg");
         self.stream
             .write_all(&bytes)
             .await

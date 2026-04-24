@@ -89,7 +89,10 @@ async fn test_login_with_correct_credentials() {
     let resp = client2.recv().await;
     match resp {
         ServerMsg::LoginOk { session_token } => {
-            assert!(!session_token.is_empty(), "session_token should not be empty");
+            assert!(
+                !session_token.is_empty(),
+                "session_token should not be empty"
+            );
         }
         other => panic!("expected LoginOk, got {:?}", other),
     }

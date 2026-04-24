@@ -17,13 +17,12 @@ pub async fn handle_inventory(
     item_templates: &Arc<HashMap<String, ItemTemplate>>,
 ) -> ServerMsg {
     // Carried items (slot IS NULL)
-    let carried: Vec<(String, String)> = sqlx::query_as(
-        "SELECT id, template_id FROM items WHERE character_id = ? AND slot IS NULL"
-    )
-    .bind(character_id)
-    .fetch_all(db)
-    .await
-    .unwrap_or_default();
+    let carried: Vec<(String, String)> =
+        sqlx::query_as("SELECT id, template_id FROM items WHERE character_id = ? AND slot IS NULL")
+            .bind(character_id)
+            .fetch_all(db)
+            .await
+            .unwrap_or_default();
 
     let items: Vec<ItemInfo> = carried
         .into_iter()
@@ -32,13 +31,17 @@ pub async fn handle_inventory(
                 .get(&template_id)
                 .map(|t| t.name.clone())
                 .unwrap_or_else(|| template_id.clone());
-            ItemInfo { id, template_id, name }
+            ItemInfo {
+                id,
+                template_id,
+                name,
+            }
         })
         .collect();
 
     // Equipped items (slot IS NOT NULL)
     let equipped_rows: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT id, template_id, slot FROM items WHERE character_id = ? AND slot IS NOT NULL"
+        "SELECT id, template_id, slot FROM items WHERE character_id = ? AND slot IS NOT NULL",
     )
     .bind(character_id)
     .fetch_all(db)
@@ -52,7 +55,12 @@ pub async fn handle_inventory(
                 .get(&template_id)
                 .map(|t| t.name.clone())
                 .unwrap_or_else(|| template_id.clone());
-            EquippedInfo { id, template_id, name, slot }
+            EquippedInfo {
+                id,
+                template_id,
+                name,
+                slot,
+            }
         })
         .collect();
 
@@ -63,7 +71,11 @@ pub async fn handle_inventory(
         .await
         .unwrap_or(0);
 
-    ServerMsg::InventoryList { items, equipped, gold }
+    ServerMsg::InventoryList {
+        items,
+        equipped,
+        gold,
+    }
 }
 
 /// Handle the GetItem command: pick up an item from the room floor.
@@ -75,20 +87,19 @@ pub async fn handle_get_item(
     item_templates: &Arc<HashMap<String, ItemTemplate>>,
 ) -> ServerMsg {
     // Find matching item on room floor
-    let row: Option<(String, String)> = sqlx::query_as(
-        "SELECT id, template_id FROM room_items WHERE room_id = ?"
-    )
-    .bind(room_id)
-    .fetch_all(db)
-    .await
-    .unwrap_or_default()
-    .into_iter()
-    .find(|(_, tid)| {
-        item_templates
-            .get(tid)
-            .map(|t| t.name.to_lowercase().contains(&target.to_lowercase()))
-            .unwrap_or(false)
-    });
+    let row: Option<(String, String)> =
+        sqlx::query_as("SELECT id, template_id FROM room_items WHERE room_id = ?")
+            .bind(room_id)
+            .fetch_all(db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .find(|(_, tid)| {
+                item_templates
+                    .get(tid)
+                    .map(|t| t.name.to_lowercase().contains(&target.to_lowercase()))
+                    .unwrap_or(false)
+            });
 
     let (item_id, template_id) = match row {
         Some(r) => r,
@@ -117,14 +128,13 @@ pub async fn handle_get_item(
         };
     }
 
-    if let Err(e) = sqlx::query(
-        "INSERT INTO items (id, character_id, template_id) VALUES (?, ?, ?)"
-    )
-    .bind(&new_item_id)
-    .bind(character_id)
-    .bind(&template_id)
-    .execute(db)
-    .await
+    if let Err(e) =
+        sqlx::query("INSERT INTO items (id, character_id, template_id) VALUES (?, ?, ?)")
+            .bind(&new_item_id)
+            .bind(character_id)
+            .bind(&template_id)
+            .execute(db)
+            .await
     {
         warn!(error = %e, "failed to add item to inventory");
         return ServerMsg::WorldActionFail {
@@ -144,13 +154,12 @@ pub async fn handle_drop_item(
     item_templates: &Arc<HashMap<String, ItemTemplate>>,
 ) -> ServerMsg {
     // Find matching item in inventory (not equipped)
-    let rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT id, template_id FROM items WHERE character_id = ? AND slot IS NULL"
-    )
-    .bind(character_id)
-    .fetch_all(db)
-    .await
-    .unwrap_or_default();
+    let rows: Vec<(String, String)> =
+        sqlx::query_as("SELECT id, template_id FROM items WHERE character_id = ? AND slot IS NULL")
+            .bind(character_id)
+            .fetch_all(db)
+            .await
+            .unwrap_or_default();
 
     let row = rows.into_iter().find(|(_, tid)| {
         item_templates
@@ -180,14 +189,12 @@ pub async fn handle_drop_item(
         .await;
 
     let room_item_id = uuid::Uuid::new_v4().to_string();
-    let _ = sqlx::query(
-        "INSERT INTO room_items (id, room_id, template_id) VALUES (?, ?, ?)"
-    )
-    .bind(&room_item_id)
-    .bind(room_id)
-    .bind(&template_id)
-    .execute(db)
-    .await;
+    let _ = sqlx::query("INSERT INTO room_items (id, room_id, template_id) VALUES (?, ?, ?)")
+        .bind(&room_item_id)
+        .bind(room_id)
+        .bind(&template_id)
+        .execute(db)
+        .await;
 
     ServerMsg::DropItemOk { item_name }
 }
@@ -200,18 +207,21 @@ pub async fn handle_equip(
     item_templates: &Arc<HashMap<String, ItemTemplate>>,
 ) -> ServerMsg {
     // Find matching item in inventory (not equipped)
-    let rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT id, template_id FROM items WHERE character_id = ? AND slot IS NULL"
-    )
-    .bind(character_id)
-    .fetch_all(db)
-    .await
-    .unwrap_or_default();
+    let rows: Vec<(String, String)> =
+        sqlx::query_as("SELECT id, template_id FROM items WHERE character_id = ? AND slot IS NULL")
+            .bind(character_id)
+            .fetch_all(db)
+            .await
+            .unwrap_or_default();
 
     let row = rows.into_iter().find(|(_, tid)| {
         item_templates
             .get(tid)
-            .map(|t| t.name.to_lowercase().contains(&item_name_query.to_lowercase()))
+            .map(|t| {
+                t.name
+                    .to_lowercase()
+                    .contains(&item_name_query.to_lowercase())
+            })
             .unwrap_or(false)
     });
 
@@ -238,13 +248,17 @@ pub async fn handle_equip(
             // Handle ring slot: use ring_1 if empty, else ring_2
             if s == "ring" {
                 let ring1_occupied: bool = sqlx::query_scalar(
-                    "SELECT COUNT(*) > 0 FROM items WHERE character_id = ? AND slot = 'ring_1'"
+                    "SELECT COUNT(*) > 0 FROM items WHERE character_id = ? AND slot = 'ring_1'",
                 )
                 .bind(character_id)
                 .fetch_one(db)
                 .await
                 .unwrap_or(false);
-                if ring1_occupied { "ring_2".to_string() } else { "ring_1".to_string() }
+                if ring1_occupied {
+                    "ring_2".to_string()
+                } else {
+                    "ring_1".to_string()
+                }
             } else {
                 s.clone()
             }
@@ -257,13 +271,11 @@ pub async fn handle_equip(
     };
 
     // Unequip existing item in that slot (swap to inventory)
-    let _ = sqlx::query(
-        "UPDATE items SET slot = NULL WHERE character_id = ? AND slot = ?"
-    )
-    .bind(character_id)
-    .bind(&target_slot)
-    .execute(db)
-    .await;
+    let _ = sqlx::query("UPDATE items SET slot = NULL WHERE character_id = ? AND slot = ?")
+        .bind(character_id)
+        .bind(&target_slot)
+        .execute(db)
+        .await;
 
     // Equip the new item
     let _ = sqlx::query("UPDATE items SET slot = ? WHERE id = ?")
@@ -286,14 +298,13 @@ pub async fn handle_unequip(
     item_templates: &Arc<HashMap<String, ItemTemplate>>,
 ) -> ServerMsg {
     // Find item in that slot
-    let row: Option<(String, String)> = sqlx::query_as(
-        "SELECT id, template_id FROM items WHERE character_id = ? AND slot = ?"
-    )
-    .bind(character_id)
-    .bind(slot)
-    .fetch_optional(db)
-    .await
-    .unwrap_or(None);
+    let row: Option<(String, String)> =
+        sqlx::query_as("SELECT id, template_id FROM items WHERE character_id = ? AND slot = ?")
+            .bind(character_id)
+            .bind(slot)
+            .fetch_optional(db)
+            .await
+            .unwrap_or(None);
 
     let (item_id, template_id) = match row {
         Some(r) => r,
@@ -337,14 +348,15 @@ pub async fn handle_stats(
         .await
         .unwrap_or(None);
 
-    let (name, race, class, level, xp, hp, max_hp, mana, max_mana, stamina, max_stamina) = match row1 {
-        Some(r) => r,
-        None => {
-            return ServerMsg::WorldActionFail {
-                reason: "Character not found.".to_string(),
-            };
-        }
-    };
+    let (name, race, class, level, xp, hp, max_hp, mana, max_mana, stamina, max_stamina) =
+        match row1 {
+            Some(r) => r,
+            None => {
+                return ServerMsg::WorldActionFail {
+                    reason: "Character not found.".to_string(),
+                };
+            }
+        };
 
     let row2: Option<(i32, i32, i32, i32, i32, i32, String)> =
         sqlx::query_as(
@@ -355,7 +367,8 @@ pub async fn handle_stats(
         .await
         .unwrap_or(None);
 
-    let (str_s, dex_s, con_s, int_s, wis_s, cha_s, bio) = row2.unwrap_or((10, 10, 10, 10, 10, 10, String::new()));
+    let (str_s, dex_s, con_s, int_s, wis_s, cha_s, bio) =
+        row2.unwrap_or((10, 10, 10, 10, 10, 10, String::new()));
 
     // Calculate AC with equipment bonuses
     let base_ac = 10 + ability_modifier(dex_s as u8);
@@ -385,11 +398,7 @@ pub async fn handle_stats(
 }
 
 /// Handle the Bio command: set character biography (max 500 chars).
-pub async fn handle_bio(
-    db: &SqlitePool,
-    character_id: &str,
-    text: &str,
-) -> ServerMsg {
+pub async fn handle_bio(db: &SqlitePool, character_id: &str, text: &str) -> ServerMsg {
     if text.len() > 500 {
         return ServerMsg::WorldActionFail {
             reason: "Biography must be 500 characters or fewer.".to_string(),
@@ -417,13 +426,12 @@ pub async fn calculate_ac_bonus(
     character_id: &str,
     item_templates: &Arc<HashMap<String, ItemTemplate>>,
 ) -> i32 {
-    let equipped: Vec<(String,)> = sqlx::query_as(
-        "SELECT template_id FROM items WHERE character_id = ? AND slot IS NOT NULL"
-    )
-    .bind(character_id)
-    .fetch_all(db)
-    .await
-    .unwrap_or_default();
+    let equipped: Vec<(String,)> =
+        sqlx::query_as("SELECT template_id FROM items WHERE character_id = ? AND slot IS NOT NULL")
+            .bind(character_id)
+            .fetch_all(db)
+            .await
+            .unwrap_or_default();
 
     equipped
         .iter()

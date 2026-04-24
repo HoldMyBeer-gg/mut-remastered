@@ -21,10 +21,7 @@ struct ZoneFile {
 ///
 /// This runs once at server startup. File I/O is synchronous (acceptable before the
 /// async listener starts). SQLite reads are async.
-pub async fn load_world(
-    zones_dir: &Path,
-    pool: &sqlx::SqlitePool,
-) -> anyhow::Result<World> {
+pub async fn load_world(zones_dir: &Path, pool: &sqlx::SqlitePool) -> anyhow::Result<World> {
     let mut rooms = HashMap::new();
     let mut zone_count = 0u32;
 
@@ -42,7 +39,8 @@ pub async fn load_world(
                 if rooms.contains_key(&room_id) {
                     return Err(anyhow::anyhow!(
                         "duplicate room ID '{}' found while loading zone '{}'",
-                        room.id, zone.zone_id
+                        room.id,
+                        zone.zone_id
                     ));
                 }
             }
@@ -56,14 +54,17 @@ pub async fn load_world(
         }
     }
 
-    info!(zone_count, room_count = rooms.len(), "world loaded from TOML");
+    info!(
+        zone_count,
+        room_count = rooms.len(),
+        "world loaded from TOML"
+    );
 
     // Overlay persisted trigger state from SQLite
-    let state_rows: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT room_id, state_key, state_value FROM world_state"
-    )
-    .fetch_all(pool)
-    .await?;
+    let state_rows: Vec<(String, String, String)> =
+        sqlx::query_as("SELECT room_id, state_key, state_value FROM world_state")
+            .fetch_all(pool)
+            .await?;
 
     let mut room_states: HashMap<RoomId, RoomState> = HashMap::new();
     for (room_id, key, value) in state_rows {
@@ -72,11 +73,10 @@ pub async fn load_world(
     }
 
     // Load persisted player positions
-    let position_rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT account_id, room_id FROM player_positions"
-    )
-    .fetch_all(pool)
-    .await?;
+    let position_rows: Vec<(String, String)> =
+        sqlx::query_as("SELECT account_id, room_id FROM player_positions")
+            .fetch_all(pool)
+            .await?;
     let player_positions: HashMap<String, RoomId> = position_rows
         .into_iter()
         .map(|(account_id, room_id)| (account_id, RoomId(room_id)))
@@ -88,5 +88,11 @@ pub async fn load_world(
         "overlaid persisted state from SQLite"
     );
 
-    Ok(World { rooms, room_states, player_positions, player_names: HashMap::new(), default_spawn: None })
+    Ok(World {
+        rooms,
+        room_states,
+        player_positions,
+        player_names: HashMap::new(),
+        default_spawn: None,
+    })
 }

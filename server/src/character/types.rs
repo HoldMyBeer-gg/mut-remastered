@@ -32,7 +32,12 @@ pub enum Race {
 
 impl Race {
     pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().replace('-', "_").replace(' ', "_").as_str() {
+        match s
+            .to_lowercase()
+            .replace('-', "_")
+            .replace(' ', "_")
+            .as_str()
+        {
             "human" => Some(Race::Human),
             "elf" => Some(Race::Elf),
             "dwarf" => Some(Race::Dwarf),
@@ -138,7 +143,9 @@ impl Race {
                     return Err("Human requires exactly 2 racial bonus choices".to_string());
                 }
                 if choices[0] == choices[1] {
-                    return Err("Human racial bonus choices must be different abilities".to_string());
+                    return Err(
+                        "Human racial bonus choices must be different abilities".to_string()
+                    );
                 }
                 for &c in choices {
                     if c as usize >= 6 {
@@ -155,7 +162,10 @@ impl Race {
                     return Err(format!("Invalid ability index: {}", choices[0]));
                 }
                 if choices[0] as usize == CHA {
-                    return Err("Half-Elf cannot choose CHA for the flexible bonus (already +2 CHA)".to_string());
+                    return Err(
+                        "Half-Elf cannot choose CHA for the flexible bonus (already +2 CHA)"
+                            .to_string(),
+                    );
                 }
                 Ok(())
             }
@@ -253,7 +263,12 @@ pub enum Gender {
 
 impl Gender {
     pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().replace('-', "_").replace(' ', "_").as_str() {
+        match s
+            .to_lowercase()
+            .replace('-', "_")
+            .replace(' ', "_")
+            .as_str()
+        {
             "male" | "m" => Some(Gender::Male),
             "female" | "f" => Some(Gender::Female),
             "nonbinary" | "non_binary" | "nb" | "enby" => Some(Gender::NonBinary),

@@ -114,16 +114,14 @@ impl CombatManager {
                 }
 
                 // Get action: queued action, or auto-attack last target
-                let action = combat
-                    .queued_actions
-                    .remove(&combatant.id)
-                    .or_else(|| {
-                        combat.last_targets.get(&combatant.id).map(|target| {
-                            CombatAction::Attack {
-                                target: target.clone(),
-                            }
+                let action = combat.queued_actions.remove(&combatant.id).or_else(|| {
+                    combat
+                        .last_targets
+                        .get(&combatant.id)
+                        .map(|target| CombatAction::Attack {
+                            target: target.clone(),
                         })
-                    });
+                });
 
                 let action = match action {
                     Some(a) => a,
@@ -177,7 +175,12 @@ impl CombatManager {
                             CombatantId::Player(char_id) => {
                                 if let Some(stats) = player_stats.get(char_id) {
                                     let attack_bonus = stats.attack_bonus;
-                                    let defender_ac = get_target_ac(target, active_monsters, room_id, player_stats);
+                                    let defender_ac = get_target_ac(
+                                        target,
+                                        active_monsters,
+                                        room_id,
+                                        player_stats,
+                                    );
                                     let result = resolve_attack(attack_bonus, defender_ac);
 
                                     let damage = if result.is_hit() {
@@ -220,9 +223,15 @@ impl CombatManager {
                             }
                             CombatantId::Monster(mon_id) => {
                                 if let Some(monsters) = active_monsters.get(room_id) {
-                                    if let Some(monster) = monsters.iter().find(|m| m.id == *mon_id) {
+                                    if let Some(monster) = monsters.iter().find(|m| m.id == *mon_id)
+                                    {
                                         let attack_bonus = monster.attack_bonus;
-                                        let defender_ac = get_target_ac(target, active_monsters, room_id, player_stats);
+                                        let defender_ac = get_target_ac(
+                                            target,
+                                            active_monsters,
+                                            room_id,
+                                            player_stats,
+                                        );
                                         let result = resolve_attack(attack_bonus, defender_ac);
 
                                         let damage = if result.is_hit() {
@@ -281,7 +290,10 @@ impl CombatManager {
                             ));
                         }
                     }
-                    CombatAction::UseAbility { ability_name, target } => {
+                    CombatAction::UseAbility {
+                        ability_name,
+                        target,
+                    } => {
                         if let CombatantId::Player(char_id) = &combatant.id {
                             // Clone stats to avoid borrow conflicts
                             let stats_snapshot = player_stats.get(char_id).cloned();
@@ -302,12 +314,11 @@ impl CombatManager {
 
                                 // Get target AC before any mutations
                                 let defender_ac = match &target {
-                                    CombatantId::Monster(mon_id) => {
-                                        active_monsters.get(room_id)
-                                            .and_then(|ms| ms.iter().find(|m| m.id == *mon_id))
-                                            .map(|m| m.ac)
-                                            .unwrap_or(10)
-                                    }
+                                    CombatantId::Monster(mon_id) => active_monsters
+                                        .get(room_id)
+                                        .and_then(|ms| ms.iter().find(|m| m.id == *mon_id))
+                                        .map(|m| m.ac)
+                                        .unwrap_or(10),
                                     CombatantId::Player(pid) => {
                                         player_stats.get(pid).map(|s| s.ac).unwrap_or(10)
                                     }
@@ -318,10 +329,14 @@ impl CombatManager {
                                 match ability_name.to_lowercase().as_str() {
                                     "arcane_blast" | "blast" if stats.class == "mage" => {
                                         if stats.mana < 5 {
-                                            log_entries.push(format!("{} doesn't have enough mana!", combatant.name));
+                                            log_entries.push(format!(
+                                                "{} doesn't have enough mana!",
+                                                combatant.name
+                                            ));
                                         } else {
                                             stats.mana -= 5;
-                                            let dmg = crate::combat::engine::roll_dice(3, 6) + stats.int_mod;
+                                            let dmg = crate::combat::engine::roll_dice(3, 6)
+                                                + stats.int_mod;
                                             let dmg = dmg.max(1);
                                             log_entries.push(format!(
                                                 "🔮 {} unleashes Arcane Blast for {} damage! (3d6+{})",
@@ -333,10 +348,14 @@ impl CombatManager {
                                     }
                                     "heal" if stats.class == "cleric" => {
                                         if stats.mana < 5 {
-                                            log_entries.push(format!("{} doesn't have enough mana!", combatant.name));
+                                            log_entries.push(format!(
+                                                "{} doesn't have enough mana!",
+                                                combatant.name
+                                            ));
                                         } else {
                                             stats.mana -= 5;
-                                            let heal = crate::combat::engine::roll_dice(2, 8) + stats.wis_mod;
+                                            let heal = crate::combat::engine::roll_dice(2, 8)
+                                                + stats.wis_mod;
                                             let heal = heal.max(1);
                                             stats.hp = (stats.hp + heal).min(stats.max_hp);
                                             log_entries.push(format!(
@@ -348,56 +367,110 @@ impl CombatManager {
                                     }
                                     "power_strike" | "strike" if stats.class == "warrior" => {
                                         if stats.stamina < 5 {
-                                            log_entries.push(format!("{} doesn't have enough stamina!", combatant.name));
+                                            log_entries.push(format!(
+                                                "{} doesn't have enough stamina!",
+                                                combatant.name
+                                            ));
                                         } else {
                                             stats.stamina -= 5;
-                                            let result = crate::combat::engine::resolve_attack(stats.attack_bonus, defender_ac);
+                                            let result = crate::combat::engine::resolve_attack(
+                                                stats.attack_bonus,
+                                                defender_ac,
+                                            );
                                             if result.is_hit() {
                                                 let (dmg, _) = crate::combat::engine::roll_damage(
-                                                    stats.damage_dice * 2, stats.damage_sides, stats.damage_bonus, result.is_crit(),
+                                                    stats.damage_dice * 2,
+                                                    stats.damage_sides,
+                                                    stats.damage_bonus,
+                                                    result.is_crit(),
                                                 );
-                                                log_entries.push(format!("⚔ {} uses Power Strike for {} damage!", combatant.name, dmg));
+                                                log_entries.push(format!(
+                                                    "⚔ {} uses Power Strike for {} damage!",
+                                                    combatant.name, dmg
+                                                ));
                                                 dealt_damage = Some((dmg, target.clone()));
                                             } else {
-                                                log_entries.push(format!("⚔ {} uses Power Strike — MISS!", combatant.name));
+                                                log_entries.push(format!(
+                                                    "⚔ {} uses Power Strike — MISS!",
+                                                    combatant.name
+                                                ));
                                             }
                                             combat.cooldowns.insert(cd_key, 5);
                                         }
                                     }
                                     "aimed_shot" | "aim" if stats.class == "ranger" => {
                                         if stats.stamina < 3 {
-                                            log_entries.push(format!("{} doesn't have enough stamina!", combatant.name));
+                                            log_entries.push(format!(
+                                                "{} doesn't have enough stamina!",
+                                                combatant.name
+                                            ));
                                         } else {
                                             stats.stamina -= 3;
-                                            let result = crate::combat::engine::resolve_attack(stats.attack_bonus + 5, defender_ac);
+                                            let result = crate::combat::engine::resolve_attack(
+                                                stats.attack_bonus + 5,
+                                                defender_ac,
+                                            );
                                             if result.is_hit() {
                                                 let (dmg, _) = crate::combat::engine::roll_damage(
-                                                    stats.damage_dice, stats.damage_sides, stats.damage_bonus, result.is_crit(),
+                                                    stats.damage_dice,
+                                                    stats.damage_sides,
+                                                    stats.damage_bonus,
+                                                    result.is_crit(),
                                                 );
-                                                log_entries.push(format!("🎯 {} fires an Aimed Shot for {} damage!", combatant.name, dmg));
+                                                log_entries.push(format!(
+                                                    "🎯 {} fires an Aimed Shot for {} damage!",
+                                                    combatant.name, dmg
+                                                ));
                                                 dealt_damage = Some((dmg, target.clone()));
                                             } else {
-                                                log_entries.push(format!("🎯 {} fires an Aimed Shot — MISS!", combatant.name));
+                                                log_entries.push(format!(
+                                                    "🎯 {} fires an Aimed Shot — MISS!",
+                                                    combatant.name
+                                                ));
                                             }
                                             combat.cooldowns.insert(cd_key, 3);
                                         }
                                     }
                                     "sneak_attack" | "sneak" if stats.class == "rogue" => {
-                                        let used = combat.sneak_attack_used.get(&combatant.id).copied().unwrap_or(false);
+                                        let used = combat
+                                            .sneak_attack_used
+                                            .get(&combatant.id)
+                                            .copied()
+                                            .unwrap_or(false);
                                         if used {
-                                            log_entries.push(format!("{} already used Sneak Attack this combat!", combatant.name));
+                                            log_entries.push(format!(
+                                                "{} already used Sneak Attack this combat!",
+                                                combatant.name
+                                            ));
                                         } else {
-                                            let result = crate::combat::engine::resolve_attack(stats.attack_bonus, defender_ac);
+                                            let result = crate::combat::engine::resolve_attack(
+                                                stats.attack_bonus,
+                                                defender_ac,
+                                            );
                                             if result.is_hit() {
-                                                let base = crate::combat::engine::roll_dice(stats.damage_dice, stats.damage_sides);
-                                                let sneak_bonus = crate::combat::engine::roll_dice(2, 6);
-                                                let total = (base + sneak_bonus + stats.damage_bonus).max(1);
-                                                log_entries.push(format!("🗡 {} strikes from the shadows for {} damage!", combatant.name, total));
+                                                let base = crate::combat::engine::roll_dice(
+                                                    stats.damage_dice,
+                                                    stats.damage_sides,
+                                                );
+                                                let sneak_bonus =
+                                                    crate::combat::engine::roll_dice(2, 6);
+                                                let total =
+                                                    (base + sneak_bonus + stats.damage_bonus)
+                                                        .max(1);
+                                                log_entries.push(format!(
+                                                    "🗡 {} strikes from the shadows for {} damage!",
+                                                    combatant.name, total
+                                                ));
                                                 dealt_damage = Some((total, target.clone()));
                                             } else {
-                                                log_entries.push(format!("🗡 {} tries to strike from the shadows — MISS!", combatant.name));
+                                                log_entries.push(format!(
+                                                    "🗡 {} tries to strike from the shadows — MISS!",
+                                                    combatant.name
+                                                ));
                                             }
-                                            combat.sneak_attack_used.insert(combatant.id.clone(), true);
+                                            combat
+                                                .sneak_attack_used
+                                                .insert(combatant.id.clone(), true);
                                         }
                                     }
                                     _ => {
@@ -414,9 +487,15 @@ impl CombatManager {
                                 // Apply damage after stats borrow is released
                                 if let Some((dmg, dmg_target)) = dealt_damage {
                                     apply_damage_to_target(
-                                        &dmg_target, dmg, active_monsters, room_id,
-                                        player_stats, &mut log_entries, &mut deaths,
-                                        &mut monster_kills, &combat.player_participants,
+                                        &dmg_target,
+                                        dmg,
+                                        active_monsters,
+                                        room_id,
+                                        player_stats,
+                                        &mut log_entries,
+                                        &mut deaths,
+                                        &mut monster_kills,
+                                        &combat.player_participants,
                                     );
                                 }
                             }
@@ -438,7 +517,9 @@ impl CombatManager {
 
             // Tick down cooldowns
             combat.cooldowns.retain(|_, cd| {
-                if *cd > 0 { *cd -= 1; }
+                if *cd > 0 {
+                    *cd -= 1;
+                }
                 *cd > 0
             });
 
@@ -516,12 +597,14 @@ fn get_target_ac(
     player_stats: &HashMap<String, PlayerCombatStats>,
 ) -> i32 {
     match target {
-        CombatantId::Player(char_id) => {
-            player_stats.get(char_id).map(|s| s.ac).unwrap_or(10)
-        }
+        CombatantId::Player(char_id) => player_stats.get(char_id).map(|s| s.ac).unwrap_or(10),
         CombatantId::Monster(mon_id) => {
             if let Some(monsters) = active_monsters.get(room_id) {
-                monsters.iter().find(|m| m.id == *mon_id).map(|m| m.ac).unwrap_or(10)
+                monsters
+                    .iter()
+                    .find(|m| m.id == *mon_id)
+                    .map(|m| m.ac)
+                    .unwrap_or(10)
             } else {
                 10
             }
