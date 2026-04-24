@@ -3,6 +3,9 @@ name = "client-tui"
 version = "0.1.0"
 edition = "2021"
 
+[lints]
+workspace = true
+
 [dependencies]
 protocol = { path = "../protocol" }
 tokio.workspace = true

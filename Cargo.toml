@@ -9,3 +9,25 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 anyhow = "1"
 thiserror = "2"
+
+[workspace.lints.rust]
+dead_code = "allow"
+unused_imports = "warn"
+unused_variables = "allow"
+unused_assignments = "allow"
+unused_mut = "warn"
+
+[workspace.lints.clippy]
+needless_range_loop = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+ptr_arg = "allow"
+map_entry = "allow"
+type_complexity = "allow"
+should_implement_trait = "allow"
+while_let_loop = "allow"
+manual_range_contains = "allow"
+collapsible_str_replace = "allow"
+for_kv_map = "allow"
+manual_clamp = "warn"
+clone_on_copy = "warn"
