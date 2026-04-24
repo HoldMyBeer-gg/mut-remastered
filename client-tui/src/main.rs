@@ -17,7 +17,7 @@ use std::time::Duration;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use crossterm::execute;
 use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use ratatui::prelude::*;
 use tokio::net::tcp::OwnedWriteHalf;
@@ -34,7 +34,11 @@ async fn main() -> anyhow::Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        crossterm::event::EnableMouseCapture
+    )?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -42,7 +46,11 @@ async fn main() -> anyhow::Result<()> {
 
     // Restore terminal
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen, crossterm::event::DisableMouseCapture)?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        crossterm::event::DisableMouseCapture
+    )?;
     terminal.show_cursor()?;
 
     if let Err(e) = result {
@@ -113,7 +121,17 @@ async fn run_app(
     // Move to login screen
     screen = AppScreen::Login(LoginState::new());
 
+    let mut last_frame_time = Duration::from_millis(0);
+
     loop {
+        // Process server messages FIRST so state is fresh before drawing
+        while let Ok(msg) = server_rx.try_recv() {
+            match handle_server_message(msg, &mut screen, &client_tx).await {
+                MessageResult::Continue => {}
+                MessageResult::Quit => break,
+            }
+        }
+
         // Increment animation frame counter and advance camera
         if let AppScreen::InGame(ref mut state) = screen {
             state.frame += 1;
@@ -127,17 +145,22 @@ async fn run_app(
             }
         }
 
-        // Draw
+        // Draw -- measure frame time for adaptive rendering
+        let draw_start = std::time::Instant::now();
+        let slow_frame = last_frame_time > Duration::from_millis(100);
         terminal.draw(|f| match &screen {
             AppScreen::Connecting => {}
             AppScreen::Login(state) => ui::render_login(f, state),
             AppScreen::CharacterSelect(state) => ui::render_char_select(f, state),
             AppScreen::InGame(state) => ui::render_game(f, state),
         })?;
+        last_frame_time = draw_start.elapsed();
 
-        // Poll for events (input + server messages)
-        // Use a short timeout to check server messages frequently
-        if event::poll(Duration::from_millis(33))? { // ~30fps max
+        // Adaptive poll timeout: if rendering is slow, shorten poll to stay responsive
+        let poll_ms = if slow_frame { 5 } else { 33 };
+
+        // Poll for events (input)
+        if event::poll(Duration::from_millis(poll_ms))? {
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind != KeyEventKind::Press {
@@ -145,7 +168,8 @@ async fn run_app(
                     }
 
                     // Global quit: Ctrl-C
-                    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c')
+                    if key.modifiers.contains(KeyModifiers::CONTROL)
+                        && key.code == KeyCode::Char('c')
                     {
                         break;
                     }
@@ -186,14 +210,6 @@ async fn run_app(
                 _ => {}
             }
         }
-
-        // Process server messages
-        while let Ok(msg) = server_rx.try_recv() {
-            match handle_server_message(msg, &mut screen, &client_tx).await {
-                MessageResult::Continue => {}
-                MessageResult::Quit => break,
-            }
-        }
     }
 
     drop(client_tx);
@@ -223,7 +239,9 @@ async fn handle_login_input(
         KeyCode::Tab => {
             state.focus = (state.focus + 1) % 2;
         }
-        KeyCode::Char('r') | KeyCode::Char('R') if state.focus != 0 || state.username.is_empty() => {
+        KeyCode::Char('r') | KeyCode::Char('R')
+            if state.focus != 0 || state.username.is_empty() =>
+        {
             state.registering = !state.registering;
         }
         KeyCode::Char(c) => {
@@ -300,16 +318,13 @@ async fn handle_char_select_input(
             }
             KeyCode::Left => match state.create_focus {
                 1 => {
-                    state.create_race =
-                        (state.create_race + RACES.len() - 1) % RACES.len();
+                    state.create_race = (state.create_race + RACES.len() - 1) % RACES.len();
                 }
                 2 => {
-                    state.create_class =
-                        (state.create_class + CLASSES.len() - 1) % CLASSES.len();
+                    state.create_class = (state.create_class + CLASSES.len() - 1) % CLASSES.len();
                 }
                 3 => {
-                    state.create_gender =
-                        (state.create_gender + GENDERS.len() - 1) % GENDERS.len();
+                    state.create_gender = (state.create_gender + GENDERS.len() - 1) % GENDERS.len();
                 }
                 _ => {}
             },
@@ -328,8 +343,8 @@ async fn handle_char_select_input(
                 let scores = [15, 14, 13, 12, 10, 8];
                 let race = RACES[state.create_race];
                 let racial_choices = match race {
-                    "human" => vec![0, 1],    // +1 STR, +1 DEX
-                    "half_elf" => vec![0],    // +1 STR
+                    "human" => vec![0, 1], // +1 STR, +1 DEX
+                    "half_elf" => vec![0], // +1 STR
                     _ => vec![],
                 };
                 send_msg(
@@ -386,11 +401,7 @@ async fn handle_char_select_input(
     CharSelectAction::Continue
 }
 
-async fn handle_game_input(
-    key: KeyCode,
-    state: &mut GameState,
-    tx: &mpsc::Sender<(u8, Vec<u8>)>,
-) {
+async fn handle_game_input(key: KeyCode, state: &mut GameState, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
     match key {
         KeyCode::Char(c) => {
             state.input.push(c);
@@ -411,7 +422,11 @@ async fn handle_game_input(
             let lower_cmd = cmd.to_lowercase();
             let first_word = lower_cmd.split_whitespace().next().unwrap_or("");
 
-            if first_word == "/help" || first_word == "help" || first_word == "?" || first_word == "/?" {
+            if first_word == "/help"
+                || first_word == "help"
+                || first_word == "?"
+                || first_word == "/?"
+            {
                 state.log("".to_string());
                 state.log("═══ MUT Remastered — Commands ═══".to_string());
                 state.log("".to_string());
@@ -459,11 +474,16 @@ async fn handle_game_input(
 
             // Track move direction for map
             match first_word {
-                "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "u" | "up" | "d" | "down" => {
+                "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "u" | "up" | "d"
+                | "down" => {
                     // Normalize direction for tracking
                     let dir = match first_word {
-                        "n" => "north", "s" => "south", "e" => "east", "w" => "west",
-                        "u" => "up", "d" => "down",
+                        "n" => "north",
+                        "s" => "south",
+                        "e" => "east",
+                        "w" => "west",
+                        "u" => "up",
+                        "d" => "down",
                         other => other,
                     };
                     state.last_move_direction = Some(dir.to_string());
@@ -526,9 +546,15 @@ async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
 
     match verb.as_str() {
         // Movement — no / needed
-        "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "u" | "up" | "d"
-        | "down" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Move { direction: verb.clone() }).await;
+        "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "u" | "up" | "d" | "down" => {
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Move {
+                    direction: verb.clone(),
+                },
+            )
+            .await;
         }
         // All other commands use / prefix
         "/look" | "/l" => {
@@ -536,47 +562,126 @@ async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
         }
         "/examine" | "/exam" | "/ex" => {
             // Send as both Examine (for lore) and Interact (for triggers)
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Examine { target: arg.clone() }).await;
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Interact { command: format!("examine {}", arg) }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Examine {
+                    target: arg.clone(),
+                },
+            )
+            .await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Interact {
+                    command: format!("examine {}", arg),
+                },
+            )
+            .await;
         }
         "/attack" | "/kill" | "/hit" | "/a" => {
-            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::Attack { target: arg }).await;
+            send_msg(
+                tx,
+                NS_COMBAT,
+                &protocol::combat::ClientMsg::Attack { target: arg },
+            )
+            .await;
         }
         "/flee" | "/run" => {
             send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::Flee).await;
         }
         "/use" | "/cast" => {
-            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: arg }).await;
+            send_msg(
+                tx,
+                NS_COMBAT,
+                &protocol::combat::ClientMsg::UseAbility { ability_name: arg },
+            )
+            .await;
         }
         "/blast" | "/arcane_blast" => {
-            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "blast".to_string() }).await;
+            send_msg(
+                tx,
+                NS_COMBAT,
+                &protocol::combat::ClientMsg::UseAbility {
+                    ability_name: "blast".to_string(),
+                },
+            )
+            .await;
         }
         "/heal" => {
-            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "heal".to_string() }).await;
+            send_msg(
+                tx,
+                NS_COMBAT,
+                &protocol::combat::ClientMsg::UseAbility {
+                    ability_name: "heal".to_string(),
+                },
+            )
+            .await;
         }
         "/strike" | "/power_strike" => {
-            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "strike".to_string() }).await;
+            send_msg(
+                tx,
+                NS_COMBAT,
+                &protocol::combat::ClientMsg::UseAbility {
+                    ability_name: "strike".to_string(),
+                },
+            )
+            .await;
         }
         "/aim" | "/aimed_shot" => {
-            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "aim".to_string() }).await;
+            send_msg(
+                tx,
+                NS_COMBAT,
+                &protocol::combat::ClientMsg::UseAbility {
+                    ability_name: "aim".to_string(),
+                },
+            )
+            .await;
         }
         "/sneak" | "/sneak_attack" => {
-            send_msg(tx, NS_COMBAT, &protocol::combat::ClientMsg::UseAbility { ability_name: "sneak".to_string() }).await;
+            send_msg(
+                tx,
+                NS_COMBAT,
+                &protocol::combat::ClientMsg::UseAbility {
+                    ability_name: "sneak".to_string(),
+                },
+            )
+            .await;
         }
         "/inv" | "/inventory" | "/i" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Inventory).await;
         }
         "/get" | "/take" | "/pickup" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::GetItem { target: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::GetItem { target: arg },
+            )
+            .await;
         }
         "/drop" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::DropItem { target: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::DropItem { target: arg },
+            )
+            .await;
         }
         "/equip" | "/wear" | "/wield" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Equip { item_name: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Equip { item_name: arg },
+            )
+            .await;
         }
         "/unequip" | "/remove" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Unequip { slot: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Unequip { slot: arg },
+            )
+            .await;
         }
         "/stats" | "/score" | "/sc" => {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Stats).await;
@@ -591,31 +696,68 @@ async fn parse_and_send_command(cmd: &str, tx: &mpsc::Sender<(u8, Vec<u8>)>) {
             send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Say { text: arg }).await;
         }
         "/emote" | "/em" | "/me" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Emote { text: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Emote { text: arg },
+            )
+            .await;
         }
         "/whisper" | "/tell" | "/w" => {
             let wparts: Vec<&str> = arg.splitn(2, ' ').collect();
             if wparts.len() == 2 {
-                send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Whisper {
-                    target: wparts[0].to_string(),
-                    text: wparts[1].to_string(),
-                }).await;
+                send_msg(
+                    tx,
+                    NS_WORLD,
+                    &protocol::world::ClientMsg::Whisper {
+                        target: wparts[0].to_string(),
+                        text: wparts[1].to_string(),
+                    },
+                )
+                .await;
             }
         }
         "/gossip" | "/ooc" | "/g" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Gossip { text: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Gossip { text: arg },
+            )
+            .await;
         }
         "/toggle" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::ToggleChannel { channel: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::ToggleChannel { channel: arg },
+            )
+            .await;
         }
         "/lookat" | "/inspect" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::LookAt { target: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::LookAt { target: arg },
+            )
+            .await;
         }
         "/describe" | "/desc" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::SetDescription { text: arg }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::SetDescription { text: arg },
+            )
+            .await;
         }
         "/descend" | "/enter" => {
-            send_msg(tx, NS_WORLD, &protocol::world::ClientMsg::Interact { command: "enter dungeon".to_string() }).await;
+            send_msg(
+                tx,
+                NS_WORLD,
+                &protocol::world::ClientMsg::Interact {
+                    command: "enter dungeon".to_string(),
+                },
+            )
+            .await;
         }
         _ => {
             // Try as interact command (freeform, no / needed)
@@ -663,13 +805,8 @@ async fn handle_server_message(
             }
             protocol::auth::ServerMsg::LoginOk { .. } => {
                 // Transition to character select, request character list
-                let mut cs = CharSelectState::new();
-                send_msg(
-                    tx,
-                    NS_CHAR,
-                    &protocol::character::ClientMsg::CharacterList,
-                )
-                .await;
+                let cs = CharSelectState::new();
+                send_msg(tx, NS_CHAR, &protocol::character::ClientMsg::CharacterList).await;
                 *screen = AppScreen::CharacterSelect(cs);
             }
             protocol::auth::ServerMsg::LogoutOk => {
@@ -690,17 +827,15 @@ async fn handle_server_message(
                     state.selected_index = 0;
                 }
             }
-            protocol::character::ServerMsg::CharacterCreateOk { character_id, name } => {
+            protocol::character::ServerMsg::CharacterCreateOk {
+                character_id: _,
+                name: _,
+            } => {
                 if let AppScreen::CharacterSelect(state) = screen {
                     state.creating = false;
                     state.error_message = None;
                     // Refresh list
-                    send_msg(
-                        tx,
-                        NS_CHAR,
-                        &protocol::character::ClientMsg::CharacterList,
-                    )
-                    .await;
+                    send_msg(tx, NS_CHAR, &protocol::character::ClientMsg::CharacterList).await;
                 }
             }
             protocol::character::ServerMsg::CharacterCreateFail { reason } => {
@@ -708,10 +843,7 @@ async fn handle_server_message(
                     state.error_message = Some(reason);
                 }
             }
-            protocol::character::ServerMsg::CharacterSelected {
-                character_id,
-                name,
-            } => {
+            protocol::character::ServerMsg::CharacterSelected { character_id, name } => {
                 *screen = AppScreen::InGame(GameState::new(character_id, name));
             }
             protocol::character::ServerMsg::CharacterSelectFail { reason } => {
@@ -753,7 +885,10 @@ async fn handle_server_message(
                         }
                         if first_room {
                             state.log("".to_string());
-                            state.log("⚔ Welcome to MUT Remastered v0.3! Type /help for commands.".to_string());
+                            state.log(
+                                "⚔ Welcome to MUT Remastered v0.3! Type /help for commands."
+                                    .to_string(),
+                            );
                             state.log("💡 Move: n/s/e/w │ Fight: /attack <mob> │ Ability: /blast /heal /strike".to_string());
                             state.log("".to_string());
                         }
@@ -761,15 +896,17 @@ async fn handle_server_message(
                     protocol::world::ServerMsg::MoveOk { from_room, to_room } => {
                         // Record room connection for the map
                         if let Some(dir) = state.last_move_direction.take() {
-                            state.room_connections.insert(
-                                (from_room.clone(), dir.clone()),
-                                to_room.clone(),
-                            );
+                            state
+                                .room_connections
+                                .insert((from_room.clone(), dir.clone()), to_room.clone());
                             // Also record the reverse connection
                             let reverse_dir = match dir.as_str() {
-                                "north" => "south", "south" => "north",
-                                "east" => "west", "west" => "east",
-                                "up" => "down", "down" => "up",
+                                "north" => "south",
+                                "south" => "north",
+                                "east" => "west",
+                                "west" => "east",
+                                "up" => "down",
+                                "down" => "up",
                                 _ => "",
                             };
                             if !reverse_dir.is_empty() {
@@ -864,7 +1001,11 @@ async fn handle_server_message(
                     protocol::world::ServerMsg::WorldActionFail { reason } => {
                         state.log(format!("⛔ {}", reason));
                     }
-                    protocol::world::ServerMsg::ChatMessage { channel, sender, text } => {
+                    protocol::world::ServerMsg::ChatMessage {
+                        channel,
+                        sender,
+                        text,
+                    } => {
                         let prefix = if channel == "gossip" { "[OOC]" } else { "[IC]" };
                         state.log(format!("{} {} says: {}", prefix, sender, text));
                     }
@@ -877,7 +1018,15 @@ async fn handle_server_message(
                     protocol::world::ServerMsg::WhisperSent { to, text } => {
                         state.log(format!("[WHISPER] You whisper to {}: {}", to, text));
                     }
-                    protocol::world::ServerMsg::LookAtResult { name, race, class, level, description, bio, equipped } => {
+                    protocol::world::ServerMsg::LookAtResult {
+                        name,
+                        race,
+                        class,
+                        level,
+                        description,
+                        bio,
+                        equipped,
+                    } => {
                         state.log("── Player Info ──".to_string());
                         state.log(format!("  {} — {} {} Lv {}", name, race, class, level));
                         if !description.is_empty() {
@@ -924,10 +1073,7 @@ async fn handle_server_message(
                         state.level = level;
                     }
                     protocol::combat::ServerMsg::CombatStart { combatants } => {
-                        state.log(format!(
-                            "⚔ Combat! Combatants: {}",
-                            combatants.join(", ")
-                        ));
+                        state.log(format!("⚔ Combat! Combatants: {}", combatants.join(", ")));
                         state.in_combat = true;
                         state.combat_round = 0;
                         state.last_round_frame = state.frame;
@@ -948,7 +1094,10 @@ async fn handle_server_message(
                     protocol::combat::ServerMsg::ActionFail { reason } => {
                         state.log(format!("⛔ {}", reason));
                     }
-                    protocol::combat::ServerMsg::RoundTimer { seconds_remaining, round } => {
+                    protocol::combat::ServerMsg::RoundTimer {
+                        seconds_remaining: _,
+                        round,
+                    } => {
                         state.combat_round = round;
                         state.last_round_frame = state.frame;
                     }

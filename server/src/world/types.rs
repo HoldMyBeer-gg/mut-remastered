@@ -30,10 +30,10 @@ impl Direction {
         match s.to_lowercase().as_str() {
             "north" | "n" => Some(Direction::North),
             "south" | "s" => Some(Direction::South),
-            "east"  | "e" => Some(Direction::East),
-            "west"  | "w" => Some(Direction::West),
-            "up"    | "u" => Some(Direction::Up),
-            "down"  | "d" => Some(Direction::Down),
+            "east" | "e" => Some(Direction::East),
+            "west" | "w" => Some(Direction::West),
+            "up" | "u" => Some(Direction::Up),
+            "down" | "d" => Some(Direction::Down),
             _ => None,
         }
     }
@@ -43,10 +43,10 @@ impl Direction {
         match self {
             Direction::North => "north",
             Direction::South => "south",
-            Direction::East  => "east",
-            Direction::West  => "west",
-            Direction::Up    => "up",
-            Direction::Down  => "down",
+            Direction::East => "east",
+            Direction::West => "west",
+            Direction::Up => "up",
+            Direction::Down => "down",
         }
     }
 
@@ -55,10 +55,10 @@ impl Direction {
         match self {
             Direction::North => "south",
             Direction::South => "north",
-            Direction::East  => "west",
-            Direction::West  => "east",
-            Direction::Up    => "below",
-            Direction::Down  => "above",
+            Direction::East => "west",
+            Direction::West => "east",
+            Direction::Up => "below",
+            Direction::Down => "above",
         }
     }
 }
@@ -152,6 +152,13 @@ pub struct World {
 
 /// Event broadcast to all players in a room via `tokio::sync::broadcast`.
 #[derive(Debug, Clone)]
-pub struct WorldEvent {
-    pub message: String,
+pub enum WorldEvent {
+    /// Plain text message (chat, movement notifications, etc.)
+    Text(String),
+    /// Typed combat log entries for one round.
+    CombatLog(Vec<String>),
+    /// Combat has ended with a result description.
+    CombatEnd(String),
+    /// Round timer tick for active combat.
+    RoundTimer { seconds_remaining: f32, round: u32 },
 }

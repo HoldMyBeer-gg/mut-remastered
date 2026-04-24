@@ -120,16 +120,40 @@ impl ConnectionActor {
             if let Some(event) = event_result {
                 match event {
                     Ok(world_event) => {
-                        let msg = WorldServerMsg::WorldEvent {
-                            message: world_event.message,
+                        let result = match world_event {
+                            WorldEvent::Text(message) => {
+                                self.send_world(WorldServerMsg::WorldEvent { message })
+                                    .await
+                            }
+                            WorldEvent::CombatLog(entries) => {
+                                self.send_combat(CombatServerMsg::CombatLog { entries })
+                                    .await
+                            }
+                            WorldEvent::CombatEnd(result) => {
+                                self.send_combat(CombatServerMsg::CombatEnd { result })
+                                    .await
+                            }
+                            WorldEvent::RoundTimer {
+                                seconds_remaining,
+                                round,
+                            } => {
+                                self.send_combat(CombatServerMsg::RoundTimer {
+                                    seconds_remaining,
+                                    round,
+                                })
+                                .await
+                            }
                         };
-                        if let Err(e) = self.send_world(msg).await {
-                            warn!(error = %e, "failed to send world event");
+                        if let Err(e) = result {
+                            warn!(error = %e, "failed to send event");
                             break;
                         }
                     }
                     Err(broadcast::error::RecvError::Lagged(n)) => {
-                        warn!(missed = n, "lagged on room broadcast — player can re-look to resync");
+                        warn!(
+                            missed = n,
+                            "lagged on room broadcast — player can re-look to resync"
+                        );
                     }
                     Err(broadcast::error::RecvError::Closed) => {
                         self.room_receiver = None;
@@ -188,10 +212,7 @@ impl ConnectionActor {
     }
 
     /// Dispatch a decoded auth ClientMsg to the appropriate handler.
-    async fn handle_auth_message(
-        &mut self,
-        msg: protocol::auth::ClientMsg,
-    ) -> anyhow::Result<()> {
+    async fn handle_auth_message(&mut self, msg: protocol::auth::ClientMsg) -> anyhow::Result<()> {
         match msg {
             protocol::auth::ClientMsg::Register { username, password } => {
                 // Hash password on a blocking thread — Argon2 is CPU-intensive
@@ -202,7 +223,8 @@ impl ConnectionActor {
                 match register_account(&self.state.db, &username, &hash).await {
                     Ok(account_id) => {
                         debug!(%username, %account_id, "account registered");
-                        self.send_auth(AuthServerMsg::RegisterOk { account_id }).await?;
+                        self.send_auth(AuthServerMsg::RegisterOk { account_id })
+                            .await?;
                     }
                     Err(e) if e.to_string().contains("already taken") => {
                         self.send_auth(AuthServerMsg::Error {
@@ -256,8 +278,7 @@ impl ConnectionActor {
                             self.account_id = Some(account_id.clone());
 
                             // Load tutorial completion flag
-                            self.tutorial_complete =
-                                self.load_tutorial_complete(&account_id).await;
+                            self.tutorial_complete = self.load_tutorial_complete(&account_id).await;
 
                             self.send_auth(AuthServerMsg::LoginOk {
                                 session_token: token,
@@ -359,7 +380,7 @@ impl ConnectionActor {
                             self.room_receiver = Some(sender.subscribe());
                         }
                     } // channels guard dropped here
-                    // Check for aggressive monsters in the new room
+                      // Check for aggressive monsters in the new room
                     self.check_aggro(&new_room).await;
                 }
             }
@@ -375,22 +396,41 @@ impl ConnectionActor {
             }
 
             protocol::world::ClientMsg::Interact { command } => {
-                let (responses, tutorial_now_complete) =
-                    crate::world::commands::handle_interact(
-                        &self.state.world,
-                        &self.state.room_channels,
-                        &self.state.active_monsters,
-                        &self.state.monster_templates,
-                        &self.state.db,
-                        &character_id,
-                        &command,
-                    )
-                    .await;
+                // Snapshot position before interact (dungeon entry can teleport)
+                let old_room = {
+                    let w = self.state.world.read().await;
+                    w.player_positions.get(&character_id).cloned()
+                };
+
+                let (responses, tutorial_now_complete) = crate::world::commands::handle_interact(
+                    &self.state.world,
+                    &self.state.room_channels,
+                    &self.state.active_monsters,
+                    &self.state.monster_templates,
+                    &self.state.db,
+                    &character_id,
+                    &command,
+                )
+                .await;
                 for resp in responses {
                     self.send_world(resp).await?;
                 }
                 if tutorial_now_complete {
                     self.tutorial_complete = true;
+                }
+
+                // If interact moved the player (e.g. dungeon entry), re-subscribe
+                let new_room = {
+                    let w = self.state.world.read().await;
+                    w.player_positions.get(&character_id).cloned()
+                };
+                if new_room != old_room {
+                    if let Some(ref room_id) = new_room {
+                        let channels = self.state.room_channels.read().await;
+                        if let Some(sender) = channels.get(room_id) {
+                            self.room_receiver = Some(sender.subscribe());
+                        }
+                    }
                 }
             }
 
@@ -473,12 +513,9 @@ impl ConnectionActor {
             }
 
             protocol::world::ClientMsg::Bio { text } => {
-                let resp = crate::inventory::commands::handle_bio(
-                    &self.state.db,
-                    &character_id,
-                    &text,
-                )
-                .await;
+                let resp =
+                    crate::inventory::commands::handle_bio(&self.state.db, &character_id, &text)
+                        .await;
                 self.send_world(resp).await?;
             }
 
@@ -492,9 +529,10 @@ impl ConnectionActor {
                 if let Some(room_id) = room_id {
                     let channels = self.state.room_channels.read().await;
                     if let Some(sender) = channels.get(&room_id) {
-                        let _ = sender.send(crate::world::types::WorldEvent {
-                            message: format!("[IC] {} says: {}", name, text),
-                        });
+                        let _ = sender.send(crate::world::types::WorldEvent::Text(format!(
+                            "[IC] {} says: {}",
+                            name, text
+                        )));
                     }
                 }
             }
@@ -508,9 +546,10 @@ impl ConnectionActor {
                 if let Some(room_id) = room_id {
                     let channels = self.state.room_channels.read().await;
                     if let Some(sender) = channels.get(&room_id) {
-                        let _ = sender.send(crate::world::types::WorldEvent {
-                            message: format!("[IC] {} {}", name, text),
-                        });
+                        let _ = sender.send(crate::world::types::WorldEvent::Text(format!(
+                            "[IC] {} {}",
+                            name, text
+                        )));
                     }
                 }
             }
@@ -526,16 +565,14 @@ impl ConnectionActor {
                 if let Some(room_id) = room_id {
                     let channels = self.state.room_channels.read().await;
                     if let Some(sender) = channels.get(&room_id) {
-                        let _ = sender.send(crate::world::types::WorldEvent {
-                            message: format!("[WHISPER] {} whispers to {}: {}", name, target, text),
-                        });
+                        let _ = sender.send(crate::world::types::WorldEvent::Text(format!(
+                            "[WHISPER] {} whispers to {}: {}",
+                            name, target, text
+                        )));
                     }
                 }
-                self.send_world(WorldServerMsg::WhisperSent {
-                    to: target,
-                    text,
-                })
-                .await?;
+                self.send_world(WorldServerMsg::WhisperSent { to: target, text })
+                    .await?;
             }
 
             protocol::world::ClientMsg::Gossip { text } => {
@@ -593,10 +630,7 @@ impl ConnectionActor {
     }
 
     /// Encode and write a character ServerMsg to the TCP stream.
-    async fn send_char(
-        &mut self,
-        msg: protocol::character::ServerMsg,
-    ) -> anyhow::Result<()> {
+    async fn send_char(&mut self, msg: protocol::character::ServerMsg) -> anyhow::Result<()> {
         let bytes = encode_message(NS_CHAR, &msg)?;
         self.writer.write_all(&bytes).await?;
         Ok(())
@@ -631,21 +665,19 @@ impl ConnectionActor {
 
                 let characters = rows
                     .into_iter()
-                    .map(|(id, name, race, class, level)| {
-                        protocol::character::CharacterSummary {
+                    .map(
+                        |(id, name, race, class, level)| protocol::character::CharacterSummary {
                             id,
                             name,
                             race,
                             class,
                             level: level as u32,
-                        }
-                    })
+                        },
+                    )
                     .collect();
 
-                self.send_char(protocol::character::ServerMsg::CharacterListResult {
-                    characters,
-                })
-                .await?;
+                self.send_char(protocol::character::ServerMsg::CharacterListResult { characters })
+                    .await?;
             }
 
             protocol::character::ClientMsg::CharacterCreate {
@@ -658,10 +690,8 @@ impl ConnectionActor {
             } => {
                 // Validate name
                 if let Err(reason) = validate_name(&name) {
-                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
-                        reason,
-                    })
-                    .await?;
+                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail { reason })
+                        .await?;
                     return Ok(());
                 }
 
@@ -679,10 +709,8 @@ impl ConnectionActor {
 
                 // Validate racial bonus choices
                 if let Err(reason) = race_enum.validate_choices(&racial_bonus_choices) {
-                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
-                        reason,
-                    })
-                    .await?;
+                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail { reason })
+                        .await?;
                     return Ok(());
                 }
 
@@ -703,7 +731,10 @@ impl ConnectionActor {
                     Some(g) => g,
                     None => {
                         self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
-                            reason: format!("Unknown gender: '{}'. Valid options: male, female, non_binary", gender),
+                            reason: format!(
+                                "Unknown gender: '{}'. Valid options: male, female, non_binary",
+                                gender
+                            ),
                         })
                         .await?;
                         return Ok(());
@@ -712,10 +743,8 @@ impl ConnectionActor {
 
                 // Validate point buy
                 if let Err(reason) = validate_point_buy(&ability_scores) {
-                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail {
-                        reason,
-                    })
-                    .await?;
+                    self.send_char(protocol::character::ServerMsg::CharacterCreateFail { reason })
+                        .await?;
                     return Ok(());
                 }
 
@@ -789,11 +818,23 @@ impl ConnectionActor {
                 .fetch_optional(&self.state.db)
                 .await?;
 
-                let (name, _race, _class, _hp, _max_hp, _mana, _max_mana, _stamina, _max_stamina, _level) = match row {
+                let (
+                    name,
+                    _race,
+                    _class,
+                    _hp,
+                    _max_hp,
+                    _mana,
+                    _max_mana,
+                    _stamina,
+                    _max_stamina,
+                    _level,
+                ) = match row {
                     Some(r) => r,
                     None => {
                         self.send_char(protocol::character::ServerMsg::CharacterSelectFail {
-                            reason: "Character not found or does not belong to your account".to_string(),
+                            reason: "Character not found or does not belong to your account"
+                                .to_string(),
                         })
                         .await?;
                         return Ok(());
@@ -1008,13 +1049,22 @@ impl ConnectionActor {
                         // Find the first monster target in combat
                         let target = mgr.combats.get(&combat_room).and_then(|c| {
                             // Use last target or first monster
-                            c.last_targets.get(&crate::combat::types::CombatantId::Player(character_id_clone.clone()))
+                            c.last_targets
+                                .get(&crate::combat::types::CombatantId::Player(
+                                    character_id_clone.clone(),
+                                ))
                                 .cloned()
                                 .or_else(|| {
                                     c.combatants.iter().find_map(|cb| {
-                                        if let crate::combat::types::CombatantId::Monster(id) = &cb.id {
-                                            Some(crate::combat::types::CombatantId::Monster(id.clone()))
-                                        } else { None }
+                                        if let crate::combat::types::CombatantId::Monster(id) =
+                                            &cb.id
+                                        {
+                                            Some(crate::combat::types::CombatantId::Monster(
+                                                id.clone(),
+                                            ))
+                                        } else {
+                                            None
+                                        }
                                     })
                                 })
                         });
@@ -1022,11 +1072,18 @@ impl ConnectionActor {
                             mgr.queue_action(
                                 &combat_room,
                                 crate::combat::types::CombatantId::Player(character_id_clone),
-                                crate::combat::types::CombatAction::UseAbility { ability_name: ability_name.clone(), target },
+                                crate::combat::types::CombatAction::UseAbility {
+                                    ability_name: ability_name.clone(),
+                                    target,
+                                },
                             );
                             true
-                        } else { false }
-                    } else { false }
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
                 };
 
                 if !queued {
@@ -1042,12 +1099,11 @@ impl ConnectionActor {
 
     /// Load a character's DEX score from the database.
     async fn load_character_dex(&self, character_id: &str) -> u8 {
-        let row: Option<(i32,)> =
-            sqlx::query_as("SELECT dex_score FROM characters WHERE id = ?")
-                .bind(character_id)
-                .fetch_optional(&self.state.db)
-                .await
-                .unwrap_or(None);
+        let row: Option<(i32,)> = sqlx::query_as("SELECT dex_score FROM characters WHERE id = ?")
+            .bind(character_id)
+            .fetch_optional(&self.state.db)
+            .await
+            .unwrap_or(None);
         row.map(|(d,)| d as u8).unwrap_or(10)
     }
 
@@ -1192,13 +1248,12 @@ impl ConnectionActor {
     /// 3. `DEFAULT_SPAWN_ROOM` constant — the production default
     async fn ensure_character_in_world(&self, character_id: &str) {
         // Check for persisted position first
-        let persisted_room: Option<(String,)> = sqlx::query_as(
-            "SELECT room_id FROM character_positions WHERE character_id = ?"
-        )
-        .bind(character_id)
-        .fetch_optional(&self.state.db)
-        .await
-        .unwrap_or(None);
+        let persisted_room: Option<(String,)> =
+            sqlx::query_as("SELECT room_id FROM character_positions WHERE character_id = ?")
+                .bind(character_id)
+                .fetch_optional(&self.state.db)
+                .await
+                .unwrap_or(None);
 
         if let Some((room_id,)) = persisted_room {
             // Verify the room still exists (dungeons are ephemeral)
@@ -1222,8 +1277,7 @@ impl ConnectionActor {
             w.default_spawn.clone()
         };
 
-        let spawn = spawn_override
-            .unwrap_or_else(|| RoomId(DEFAULT_SPAWN_ROOM.to_string()));
+        let spawn = spawn_override.unwrap_or_else(|| RoomId(DEFAULT_SPAWN_ROOM.to_string()));
 
         // Insert into in-memory world
         {
@@ -1263,7 +1317,7 @@ impl ConnectionActor {
     /// Query the account_flags table to determine if the player has completed the tutorial.
     async fn load_tutorial_complete(&self, account_id: &str) -> bool {
         let result: Result<Option<(i64,)>, _> = sqlx::query_as(
-            "SELECT 1 FROM account_flags WHERE account_id = ? AND flag = 'tutorial_complete'"
+            "SELECT 1 FROM account_flags WHERE account_id = ? AND flag = 'tutorial_complete'",
         )
         .bind(account_id)
         .fetch_optional(&self.state.db)
@@ -1271,7 +1325,6 @@ impl ConnectionActor {
 
         matches!(result, Ok(Some(_)))
     }
-
 }
 
 /// Read a length-prefixed frame from a TCP read half.
@@ -1281,9 +1334,7 @@ impl ConnectionActor {
 ///
 /// Reads 4 bytes as a LE u32 length, then reads that many payload bytes.
 /// Returns `None` on clean EOF (client disconnected), `Some(bytes)` on success.
-async fn read_frame_from(
-    reader: &mut OwnedReadHalf,
-) -> anyhow::Result<Option<Vec<u8>>> {
+async fn read_frame_from(reader: &mut OwnedReadHalf) -> anyhow::Result<Option<Vec<u8>>> {
     let mut len_buf = [0u8; 4];
     match reader.read_exact(&mut len_buf).await {
         Ok(_) => {}

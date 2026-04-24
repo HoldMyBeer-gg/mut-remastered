@@ -136,12 +136,20 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
             if y < horizon {
                 // Ceiling — dark gradient
                 let brightness = 15 + (y as u8 * 2).min(30);
-                buf[y][x] = (' ', Color::Reset, Color::Rgb(brightness, brightness, brightness + 10));
+                buf[y][x] = (
+                    ' ',
+                    Color::Reset,
+                    Color::Rgb(brightness, brightness, brightness + 10),
+                );
             } else {
                 // Floor — brown gradient
                 let dist = (y - horizon) as u8;
                 let brightness = 25 + dist.min(40);
-                buf[y][x] = (' ', Color::Reset, Color::Rgb(brightness, brightness / 2 + 10, brightness / 3));
+                buf[y][x] = (
+                    ' ',
+                    Color::Reset,
+                    Color::Rgb(brightness, brightness / 2 + 10, brightness / 3),
+                );
             }
         }
     }
@@ -156,8 +164,16 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
         let mut map_x = player_x as i32;
         let mut map_y = player_y as i32;
 
-        let delta_dist_x = if ray_dir_x == 0.0 { f64::MAX } else { (1.0 / ray_dir_x).abs() };
-        let delta_dist_y = if ray_dir_y == 0.0 { f64::MAX } else { (1.0 / ray_dir_y).abs() };
+        let delta_dist_x = if ray_dir_x == 0.0 {
+            f64::MAX
+        } else {
+            (1.0 / ray_dir_x).abs()
+        };
+        let delta_dist_y = if ray_dir_y == 0.0 {
+            f64::MAX
+        } else {
+            (1.0 / ray_dir_y).abs()
+        };
 
         let step_x: i32;
         let step_y: i32;
@@ -238,15 +254,14 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
         }
     }
 
-    // Draw 3D mesh objects — ONLY when something is actually in the room
-    if !state.monsters_here.is_empty() {
+    // Draw 3D mesh objects — throttled to every 4th frame to keep the loop responsive
+    if !state.monsters_here.is_empty() && state.frame.is_multiple_of(4) {
         use crate::mesh3d::*;
 
         let time = state.frame as f64 * 0.05;
         let mut mesh_buf: Vec<Vec<(char, [u8; 3])>> =
             vec![vec![(' ', [0, 0, 0]); screen_w]; screen_h];
-        let mut mesh_zbuf: Vec<Vec<f64>> =
-            vec![vec![f64::MAX; screen_w]; screen_h];
+        let mut mesh_zbuf: Vec<Vec<f64>> = vec![vec![f64::MAX; screen_w]; screen_h];
 
         // Render each monster with appropriate shape and color
         let count = state.monsters_here.len();
@@ -254,17 +269,18 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
             let name_lower = monster_name.to_lowercase();
 
             // Pick mesh and color based on monster name
-            let (mesh, color, scale) = if name_lower.contains("skeleton") || name_lower.contains("boss") {
-                (create_skull(), [200u8, 200, 180], 1.2)
-            } else if name_lower.contains("spider") {
-                (create_diamond(), [100u8, 60, 120], 0.8) // purple-ish
-            } else if name_lower.contains("goblin") {
-                (create_monster(), [80u8, 180, 80], 0.9) // green
-            } else if name_lower.contains("rat") {
-                (create_cube(), [160u8, 140, 100], 0.5) // small brown
-            } else {
-                (create_monster(), [220u8, 80, 80], 1.0) // default red humanoid
-            };
+            let (mesh, color, scale) =
+                if name_lower.contains("skeleton") || name_lower.contains("boss") {
+                    (create_skull(), [200u8, 200, 180], 1.2)
+                } else if name_lower.contains("spider") {
+                    (create_diamond(), [100u8, 60, 120], 0.8) // purple-ish
+                } else if name_lower.contains("goblin") {
+                    (create_monster(), [80u8, 180, 80], 0.9) // green
+                } else if name_lower.contains("rat") {
+                    (create_cube(), [160u8, 140, 100], 0.5) // small brown
+                } else {
+                    (create_monster(), [220u8, 80, 80], 1.0) // default red humanoid
+                };
 
             // Offset each monster so multiple don't overlap
             let x_offset = if count > 1 {
@@ -298,7 +314,7 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
     // Draw exit labels
     let mid_x = screen_w / 2;
     let mid_y = screen_h / 2;
-    
+
     for exit in &state.room_exits {
         match exit.as_str() {
             "north" => {
@@ -335,8 +351,12 @@ pub fn render_raycast_view(f: &mut Frame, state: &GameState, area: Rect) {
             .take(inner.width as usize)
             .map(|&(ch, fg, bg)| {
                 let mut style = Style::default();
-                if fg != Color::Reset { style = style.fg(fg); }
-                if bg != Color::Reset { style = style.bg(bg); }
+                if fg != Color::Reset {
+                    style = style.fg(fg);
+                }
+                if bg != Color::Reset {
+                    style = style.bg(bg);
+                }
                 Span::styled(ch.to_string(), style)
             })
             .collect();
@@ -358,14 +378,49 @@ fn wall_shade(dist: f64, side: i32) -> (char, Color) {
     let darken = if side == 1 { 30u8 } else { 0u8 };
 
     if dist < 1.5 {
-        ('█', Color::Rgb(180u8.saturating_sub(darken), 170u8.saturating_sub(darken), 160u8.saturating_sub(darken)))
+        (
+            '█',
+            Color::Rgb(
+                180u8.saturating_sub(darken),
+                170u8.saturating_sub(darken),
+                160u8.saturating_sub(darken),
+            ),
+        )
     } else if dist < 2.5 {
-        ('▓', Color::Rgb(140u8.saturating_sub(darken), 130u8.saturating_sub(darken), 120u8.saturating_sub(darken)))
+        (
+            '▓',
+            Color::Rgb(
+                140u8.saturating_sub(darken),
+                130u8.saturating_sub(darken),
+                120u8.saturating_sub(darken),
+            ),
+        )
     } else if dist < 4.0 {
-        ('▒', Color::Rgb(100u8.saturating_sub(darken), 90u8.saturating_sub(darken), 80u8.saturating_sub(darken)))
+        (
+            '▒',
+            Color::Rgb(
+                100u8.saturating_sub(darken),
+                90u8.saturating_sub(darken),
+                80u8.saturating_sub(darken),
+            ),
+        )
     } else if dist < 6.0 {
-        ('░', Color::Rgb(70u8.saturating_sub(darken), 60u8.saturating_sub(darken), 50u8.saturating_sub(darken)))
+        (
+            '░',
+            Color::Rgb(
+                70u8.saturating_sub(darken),
+                60u8.saturating_sub(darken),
+                50u8.saturating_sub(darken),
+            ),
+        )
     } else {
-        ('·', Color::Rgb(40u8.saturating_sub(darken), 35u8.saturating_sub(darken), 30u8.saturating_sub(darken)))
+        (
+            '·',
+            Color::Rgb(
+                40u8.saturating_sub(darken),
+                35u8.saturating_sub(darken),
+                30u8.saturating_sub(darken),
+            ),
+        )
     }
 }

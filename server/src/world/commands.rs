@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use rand::Rng;
 use sqlx::SqlitePool;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, RwLock};
 use tracing::warn;
 
 use crate::world::types::{Direction, RoomId, TriggerEffect, World, WorldEvent};
@@ -217,9 +217,7 @@ pub async fn handle_move(
     broadcast_to_room(
         room_channels,
         &from_room_id,
-        WorldEvent {
-            message: format!("{} left to the {}.", name, exit_key),
-        },
+        WorldEvent::Text(format!("{} left to the {}.", name, exit_key)),
     )
     .await;
 
@@ -227,9 +225,11 @@ pub async fn handle_move(
     broadcast_to_room(
         room_channels,
         &to_room_id,
-        WorldEvent {
-            message: format!("{} arrived from the {}.", name, direction.opposite()),
-        },
+        WorldEvent::Text(format!(
+            "{} arrived from the {}.",
+            name,
+            direction.opposite()
+        )),
     )
     .await;
 
@@ -285,7 +285,9 @@ pub async fn handle_examine(
 
     // Otherwise check if target keyword appears in lore context
     if let Some(ref lore) = room_def.lore {
-        if lore.to_lowercase().contains(&target_lower) || room_def.name.to_lowercase().contains(&target_lower) {
+        if lore.to_lowercase().contains(&target_lower)
+            || room_def.name.to_lowercase().contains(&target_lower)
+        {
             return ServerMsg::ExamineResult { text: lore.clone() };
         }
     }
@@ -312,14 +314,24 @@ pub async fn handle_interact(
     let command_lower = command.to_lowercase();
 
     // Special: "enter dungeon" at the dungeon entrance generates a procedural dungeon
-    if command_lower == "enter dungeon" || command_lower == "descend" || command_lower == "go down" {
+    if command_lower == "enter dungeon" || command_lower == "descend" || command_lower == "go down"
+    {
         let current_room = {
             let w = world.read().await;
             w.player_positions.get(account_id).cloned()
         };
         if let Some(room_id) = current_room {
             if room_id.0.contains("dungeon_entrance") {
-                return generate_and_enter_dungeon(world, room_channels, active_monsters, monster_templates, db, account_id, &room_id).await;
+                return generate_and_enter_dungeon(
+                    world,
+                    room_channels,
+                    active_monsters,
+                    monster_templates,
+                    db,
+                    account_id,
+                    &room_id,
+                )
+                .await;
             }
         }
     }
@@ -466,12 +478,7 @@ pub async fn handle_interact(
 
     // Send broadcasts to room channel
     for msg in broadcasts {
-        broadcast_to_room(
-            room_channels,
-            &room_id,
-            WorldEvent { message: msg },
-        )
-        .await;
+        broadcast_to_room(room_channels, &room_id, WorldEvent::Text(msg)).await;
     }
 
     // Persist tutorial complete flag if set
@@ -531,7 +538,12 @@ async fn generate_and_enter_dungeon(
     use crate::dungeon::generator::*;
 
     // Pick a random theme
-    let themes = [DungeonTheme::Crypt, DungeonTheme::Cave, DungeonTheme::Ruins, DungeonTheme::Sewer];
+    let themes = [
+        DungeonTheme::Crypt,
+        DungeonTheme::Cave,
+        DungeonTheme::Ruins,
+        DungeonTheme::Sewer,
+    ];
     let theme = themes[rand::rng().random_range(0..themes.len())].clone();
     let theme_name = match &theme {
         DungeonTheme::Crypt => "Ancient Crypt",
@@ -540,7 +552,14 @@ async fn generate_and_enter_dungeon(
         DungeonTheme::Sewer => "Dark Sewers",
     };
 
-    let dungeon_id = format!("dungeon_{}", uuid::Uuid::new_v4().simple().to_string().get(..8).unwrap_or("rand"));
+    let dungeon_id = format!(
+        "dungeon_{}",
+        uuid::Uuid::new_v4()
+            .simple()
+            .to_string()
+            .get(..8)
+            .unwrap_or("rand")
+    );
 
     let config = DungeonConfig {
         room_count: rand::rng().random_range(8..15),
@@ -554,9 +573,12 @@ async fn generate_and_enter_dungeon(
 
     // Verify connectivity
     if !verify_connectivity(&dungeon) {
-        return (vec![ServerMsg::InteractResult {
-            text: "The dungeon entrance collapses! (generation error — try again)".to_string(),
-        }], false);
+        return (
+            vec![ServerMsg::InteractResult {
+                text: "The dungeon entrance collapses! (generation error — try again)".to_string(),
+            }],
+            false,
+        );
     }
 
     let first_room_id = dungeon.rooms[0].id.clone();
@@ -570,11 +592,14 @@ async fn generate_and_enter_dungeon(
         }
         // Add exit from dungeon entrance to first dungeon room
         if let Some(entrance_def) = w.rooms.get_mut(entrance_room_id) {
-            entrance_def.exits.insert("down".to_string(), first_room_id.clone());
+            entrance_def
+                .exits
+                .insert("down".to_string(), first_room_id.clone());
         }
 
         // Move player to first dungeon room
-        w.player_positions.insert(character_id.to_string(), RoomId(first_room_id.clone()));
+        w.player_positions
+            .insert(character_id.to_string(), RoomId(first_room_id.clone()));
     }
 
     // Create broadcast channels for new rooms
@@ -603,7 +628,9 @@ async fn generate_and_enter_dungeon(
         let mut rng = rand::rng();
 
         for (i, room) in dungeon.rooms.iter().enumerate() {
-            if i == 0 { continue; } // Skip entrance room — safe zone
+            if i == 0 {
+                continue;
+            } // Skip entrance room — safe zone
 
             let room_id = RoomId(room.id.clone());
             let is_boss_room = i == dungeon.rooms.len() - 1 && config.boss_room.is_some();
@@ -611,7 +638,8 @@ async fn generate_and_enter_dungeon(
             if is_boss_room {
                 // Boss room: spawn skeleton_guard
                 if let Some(template) = monster_templates.get("skeleton_guard") {
-                    let monster = crate::combat::types::ActiveMonster::from_template(template, &room_id);
+                    let monster =
+                        crate::combat::types::ActiveMonster::from_template(template, &room_id);
                     monsters.entry(room_id).or_default().push(monster);
                 }
             } else if rng.random_range(0..100) < 60 {
@@ -620,7 +648,8 @@ async fn generate_and_enter_dungeon(
                 if let Some(template) = monster_templates.get(template_id) {
                     let count = rng.random_range(1..=2);
                     for _ in 0..count {
-                        let monster = crate::combat::types::ActiveMonster::from_template(template, &room_id);
+                        let monster =
+                            crate::combat::types::ActiveMonster::from_template(template, &room_id);
                         monsters.entry(room_id.clone()).or_default().push(monster);
                     }
                 }
@@ -645,7 +674,7 @@ async fn generate_and_enter_dungeon(
     let exits: Vec<String> = room_def.exits.keys().cloned().collect();
     let hints = room_def.hints.clone().unwrap_or_default();
 
-    let mut responses = vec![
+    let responses = vec![
         ServerMsg::InteractResult {
             text: format!(
                 "You descend the spiral staircase into {}... The entrance seals behind you with a grinding of stone.",

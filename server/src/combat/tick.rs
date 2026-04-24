@@ -1,22 +1,22 @@
 //! Async combat tick loop and monster respawn management.
 //!
-//! Runs as a background Tokio task, ticking every 2 seconds.
+//! Runs as a background Tokio task, ticking every 4 seconds.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use sqlx::SqlitePool;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, warn};
 
-use crate::combat::manager::{CombatManager, PlayerCombatStats, build_player_combat_stats};
+use crate::combat::manager::{build_player_combat_stats, CombatManager, PlayerCombatStats};
 use crate::combat::types::*;
 use crate::world::types::{RoomId, WorldEvent};
 
 /// Run the combat tick loop. Called once at server startup via `tokio::spawn`.
 ///
-/// Every 2 seconds:
+/// Every 4 seconds:
 /// 1. Snapshot player combat stats from DB
 /// 2. Process one round of all active combats
 /// 3. Dispatch results: broadcast combat logs, send vitals, handle deaths
@@ -54,25 +54,20 @@ pub async fn combat_tick_loop(
 
             // 3b. Persist player HP changes to DB
             for (char_id, stats) in &player_stats {
-                let _ = sqlx::query(
-                    "UPDATE characters SET hp = ? WHERE id = ?"
-                )
-                .bind(stats.hp)
-                .bind(char_id)
-                .execute(&db)
-                .await;
+                let _ = sqlx::query("UPDATE characters SET hp = ? WHERE id = ?")
+                    .bind(stats.hp)
+                    .bind(char_id)
+                    .execute(&db)
+                    .await;
             }
 
             // 4. Dispatch results
             for (room_id, result) in &results {
-                // Broadcast combat log to room
+                // Broadcast combat log to room as typed event
                 if !result.log_entries.is_empty() {
                     let channels = room_channels.read().await;
                     if let Some(sender) = channels.get(room_id) {
-                        let log_text = result.log_entries.join("\n");
-                        let _ = sender.send(WorldEvent {
-                            message: log_text,
-                        });
+                        let _ = sender.send(WorldEvent::CombatLog(result.log_entries.clone()));
                     }
                 }
 
@@ -107,13 +102,12 @@ pub async fn combat_tick_loop(
                     };
 
                     for char_id in &kill.participants {
-                        if let Err(e) = sqlx::query(
-                            "UPDATE characters SET xp = xp + ? WHERE id = ?"
-                        )
-                        .bind(xp_each)
-                        .bind(char_id)
-                        .execute(&db)
-                        .await
+                        if let Err(e) =
+                            sqlx::query("UPDATE characters SET xp = xp + ? WHERE id = ?")
+                                .bind(xp_each)
+                                .bind(char_id)
+                                .execute(&db)
+                                .await
                         {
                             warn!(error = %e, "failed to award XP");
                         }
@@ -139,47 +133,42 @@ pub async fn combat_tick_loop(
                     if let Some(bind_room) = bind_room {
                         let channels = room_channels.read().await;
                         if let Some(sender) = channels.get(&bind_room) {
-                            let _ = sender.send(WorldEvent {
-                                message: format!("{} appears in a flash of light, gasping.", death.character_name),
-                            });
+                            let _ = sender.send(WorldEvent::Text(format!(
+                                "{} appears in a flash of light, gasping.",
+                                death.character_name
+                            )));
                         }
                     }
                 }
 
-                // Broadcast combat end
+                // Broadcast typed combat end
                 if result.combat_ended {
                     if let Some(ref msg) = result.end_message {
                         let channels = room_channels.read().await;
                         if let Some(sender) = channels.get(room_id) {
-                            let _ = sender.send(WorldEvent {
-                                message: msg.clone(),
-                            });
+                            let _ = sender.send(WorldEvent::CombatEnd(msg.clone()));
                         }
                     }
                 }
             }
         }
 
-        // 5b. Broadcast round timer to rooms with active combat
+        // 5b. Broadcast typed round timer to rooms with active combat
         {
             let mgr = combat_manager.read().await;
             let channels = room_channels.read().await;
             for (room_id, combat) in &mgr.combats {
                 if let Some(sender) = channels.get(room_id) {
-                    let _ = sender.send(WorldEvent {
-                        message: format!("⏱ Round {} complete. Next round in 4 seconds. Queue your action now! (/attack, /blast, /heal, /flee)", combat.round),
+                    let _ = sender.send(WorldEvent::RoundTimer {
+                        seconds_remaining: 4.0,
+                        round: combat.round,
                     });
                 }
             }
         }
 
         // 6. Process respawn timers
-        process_respawns(
-            &respawn_timers,
-            &active_monsters,
-            &monster_templates,
-        )
-        .await;
+        process_respawns(&respawn_timers, &active_monsters, &monster_templates).await;
     }
 }
 
@@ -207,11 +196,43 @@ async fn snapshot_player_stats(
             .await
             .unwrap_or(None);
 
-        if let Some((name, hp, max_hp, mana, max_mana, stamina, max_stamina, xp, level, str_s, dex_s, con_s, int_s, wis_s, cha_s, class)) = row {
+        if let Some((
+            name,
+            hp,
+            max_hp,
+            mana,
+            max_mana,
+            stamina,
+            max_stamina,
+            xp,
+            level,
+            str_s,
+            dex_s,
+            con_s,
+            int_s,
+            wis_s,
+            cha_s,
+            class,
+        )) = row
+        {
             debug!(%char_id, %name, hp, max_hp, "snapshot player stats for combat");
             let pcs = build_player_combat_stats(
-                char_id, &name, hp, max_hp, mana, max_mana, stamina, max_stamina,
-                xp, level as i32, str_s as u8, dex_s as u8, con_s as u8, int_s as u8, wis_s as u8, cha_s as u8,
+                char_id,
+                &name,
+                hp,
+                max_hp,
+                mana,
+                max_mana,
+                stamina,
+                max_stamina,
+                xp,
+                level as i32,
+                str_s as u8,
+                dex_s as u8,
+                con_s as u8,
+                int_s as u8,
+                wis_s as u8,
+                cha_s as u8,
                 &class,
             );
             stats.insert(char_id.clone(), pcs);
@@ -225,18 +246,17 @@ async fn handle_player_death(
     character_id: &str,
     character_name: &str,
     world: &Arc<RwLock<crate::world::types::World>>,
-    room_channels: &Arc<RwLock<HashMap<RoomId, broadcast::Sender<WorldEvent>>>>,
+    _room_channels: &Arc<RwLock<HashMap<RoomId, broadcast::Sender<WorldEvent>>>>,
     db: &SqlitePool,
 ) {
     // Get bind point and current room
-    let (bind_point, old_room_id) = {
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT bind_point FROM characters WHERE id = ?"
-        )
-        .bind(character_id)
-        .fetch_optional(db)
-        .await
-        .unwrap_or(None);
+    let (bind_point, _old_room_id) = {
+        let row: Option<(String,)> =
+            sqlx::query_as("SELECT bind_point FROM characters WHERE id = ?")
+                .bind(character_id)
+                .fetch_optional(db)
+                .await
+                .unwrap_or(None);
         let bind = row
             .map(|(bp,)| bp)
             .unwrap_or_else(|| "starting_village:market_square".to_string());
@@ -318,10 +338,7 @@ async fn process_respawns(
                 "monster respawned"
             );
             let mut monsters = active_monsters.write().await;
-            monsters
-                .entry(timer.room_id)
-                .or_default()
-                .push(monster);
+            monsters.entry(timer.room_id).or_default().push(monster);
         }
     }
 }

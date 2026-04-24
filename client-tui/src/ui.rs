@@ -46,19 +46,28 @@ pub fn render_login(f: &mut Frame, state: &LoginState) {
     };
 
     f.render_widget(Paragraph::new("Username:").style(username_style), chunks[1]);
-    let username_block = Block::bordered().border_type(BorderType::Rounded).style(username_style);
+    let username_block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .style(username_style);
     let username_text = Paragraph::new(state.username.as_str()).block(username_block);
     f.render_widget(username_text, chunks[2]);
 
     f.render_widget(Paragraph::new("Password:").style(password_style), chunks[3]);
-    let password_block = Block::bordered().border_type(BorderType::Rounded).style(password_style);
+    let password_block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .style(password_style);
     let masked: String = "*".repeat(state.password.len());
     let password_text = Paragraph::new(masked).block(password_block);
     f.render_widget(password_text, chunks[4]);
 
-    let mode = if state.registering { "Register" } else { "Login" };
+    let mode = if state.registering {
+        "Register"
+    } else {
+        "Login"
+    };
     let instructions = Paragraph::new(format!(
-        "Tab: switch field | Enter: {} | R: toggle register | Esc: quit", mode
+        "Tab: switch field | Enter: {} | R: toggle register | Esc: quit",
+        mode
     ))
     .style(Style::default().fg(Color::DarkGray))
     .alignment(Alignment::Center);
@@ -106,11 +115,17 @@ pub fn render_char_select(f: &mut Frame, state: &CharSelectState) {
         .enumerate()
         .map(|(i, c)| {
             let style = if i == state.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
-            let prefix = if i == state.selected_index { "▶ " } else { "  " };
+            let prefix = if i == state.selected_index {
+                "▶ "
+            } else {
+                "  "
+            };
             ListItem::new(format!(
                 "{}{} — {} {} (Lv {})",
                 prefix, c.name, c.race, c.class, c.level
@@ -119,11 +134,7 @@ pub fn render_char_select(f: &mut Frame, state: &CharSelectState) {
         })
         .collect();
 
-    let chunks = Layout::vertical([
-        Constraint::Min(3),
-        Constraint::Length(2),
-    ])
-    .split(inner);
+    let chunks = Layout::vertical([Constraint::Min(3), Constraint::Length(2)]).split(inner);
 
     let list = List::new(items);
     f.render_widget(list, chunks[0]);
@@ -180,7 +191,10 @@ fn render_char_create(f: &mut Frame, state: &CharSelectState) {
         }
     };
 
-    f.render_widget(Paragraph::new("Name:").style(highlight(state.create_focus == 0)), chunks[1]);
+    f.render_widget(
+        Paragraph::new("Name:").style(highlight(state.create_focus == 0)),
+        chunks[1],
+    );
     let name_block = Block::bordered().style(highlight(state.create_focus == 0));
     f.render_widget(
         Paragraph::new(state.create_name.as_str()).block(name_block),
@@ -224,68 +238,108 @@ pub fn render_game(f: &mut Frame, state: &GameState) {
 
     // Main layout: menu bar, top section (room + map), game log, vitals bar, input
     let main_chunks = Layout::vertical([
-        Constraint::Length(1),       // menu bar
-        Constraint::Percentage(30),  // room + map
-        Constraint::Min(5),          // game log
-        Constraint::Length(4),       // vitals bar
-        Constraint::Length(3),       // input
+        Constraint::Length(1),      // menu bar
+        Constraint::Percentage(30), // room + map
+        Constraint::Min(5),         // game log
+        Constraint::Length(4),      // vitals bar
+        Constraint::Length(3),      // input
     ])
     .split(area);
 
     // Menu bar
+
     render_menu_bar(f, main_chunks[0]);
 
     // Top section: room description (left 50%) + dungeon map (right 50%)
-    let top_chunks = Layout::horizontal([
-        Constraint::Percentage(50),
-        Constraint::Percentage(50),
-    ])
-    .split(main_chunks[1]);
+    let top_chunks = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(main_chunks[1]);
 
     // Room description pane
+
     render_room_pane(f, state, top_chunks[0]);
 
     // First-person raycasted dungeon view
+
     crate::raycast::render_raycast_view(f, state, top_chunks[1]);
 
     // Game log
+
     render_game_log(f, state, main_chunks[2]);
 
     // Vitals bar
+
     render_vitals(f, state, main_chunks[3]);
 
     // Input line
+
     render_input(f, state, main_chunks[4]);
 }
 
 fn render_menu_bar(f: &mut Frame, area: Rect) {
     let menu = Line::from(vec![
-        Span::styled(" ⚔ MUT ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " ⚔ MUT ",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(" F1", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " F1",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(":Help ", Style::default().fg(Color::Gray)),
         Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(" /help", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " /help",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(":Full ", Style::default().fg(Color::Gray)),
         Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(" Tab", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " Tab",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(":Stats ", Style::default().fg(Color::Gray)),
         Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(" PgUp/Dn", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " PgUp/Dn",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(":Scroll ", Style::default().fg(Color::Gray)),
         Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(" ↑↓", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " ↑↓",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(":History ", Style::default().fg(Color::Gray)),
         Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(" 🖱Scroll", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " 🖱Scroll",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(":Log ", Style::default().fg(Color::Gray)),
         Span::styled("│", Style::default().fg(Color::DarkGray)),
-        Span::styled(" Ctrl-C", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " Ctrl-C",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(":Quit ", Style::default().fg(Color::Gray)),
     ]);
 
-    let bar = Paragraph::new(menu)
-        .style(Style::default().bg(Color::Rgb(20, 20, 40)));
+    let bar = Paragraph::new(menu).style(Style::default().bg(Color::Rgb(20, 20, 40)));
     f.render_widget(bar, area);
 }
 
@@ -330,12 +384,36 @@ fn render_minimap(f: &mut Frame, state: &GameState, area: Rect) {
 
     // Simple compass showing available exits
     let exits = &state.room_exits;
-    let n = if exits.iter().any(|e| e == "north") { "N" } else { "·" };
-    let s = if exits.iter().any(|e| e == "south") { "S" } else { "·" };
-    let e = if exits.iter().any(|e| e == "east") { "E" } else { "·" };
-    let w = if exits.iter().any(|e| e == "west") { "W" } else { "·" };
-    let u = if exits.iter().any(|e| e == "up") { "U" } else { " " };
-    let d = if exits.iter().any(|e| e == "down") { "D" } else { " " };
+    let n = if exits.iter().any(|e| e == "north") {
+        "N"
+    } else {
+        "·"
+    };
+    let s = if exits.iter().any(|e| e == "south") {
+        "S"
+    } else {
+        "·"
+    };
+    let e = if exits.iter().any(|e| e == "east") {
+        "E"
+    } else {
+        "·"
+    };
+    let w = if exits.iter().any(|e| e == "west") {
+        "W"
+    } else {
+        "·"
+    };
+    let u = if exits.iter().any(|e| e == "up") {
+        "U"
+    } else {
+        " "
+    };
+    let d = if exits.iter().any(|e| e == "down") {
+        "D"
+    } else {
+        " "
+    };
 
     let compass_lines = vec![
         Line::from(format!("      {}  {}", n, u)).style(Style::default().fg(Color::White)),
@@ -359,38 +437,7 @@ fn render_game_log(f: &mut Frame, state: &GameState, area: Rect) {
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    let lines: Vec<Line> = state
-        .game_log
-        .iter()
-        .map(|entry| {
-            let style = if entry.starts_with("CRITICAL") || entry.contains("HIT!") {
-                Style::default().fg(Color::Red)
-            } else if entry.contains("MISS") {
-                Style::default().fg(Color::DarkGray)
-            } else if entry.contains("slain") || entry.contains("died") {
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
-            } else if entry.contains("Victory") {
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-            } else if entry.starts_with("💡") || entry.starts_with("⚔") {
-                Style::default().fg(Color::Cyan)
-            } else if entry.starts_with("🐀") {
-                Style::default().fg(Color::Yellow)
-            } else if entry.starts_with("═") || entry.starts_with("──") {
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(Color::White)
-            };
-            Line::styled(entry.as_str(), style)
-        })
-        .collect();
-
-    // Auto-scroll: show last N lines that fit in the area
-    let paragraph = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .scroll((state.log_scroll, 0));
-
     // Calculate scroll to show bottom
-    // We want to show the most recent entries
     let content_height = state.game_log.len() as u16;
     let view_height = inner.height;
     let scroll = if content_height > view_height {
@@ -400,26 +447,34 @@ fn render_game_log(f: &mut Frame, state: &GameState, area: Rect) {
     };
 
     let paragraph = Paragraph::new(
-        state.game_log.iter().map(|entry| {
-            let style = if entry.starts_with("CRITICAL") || entry.contains("HIT!") {
-                Style::default().fg(Color::Red)
-            } else if entry.contains("MISS") {
-                Style::default().fg(Color::DarkGray)
-            } else if entry.contains("slain") || entry.contains("died") {
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
-            } else if entry.contains("Victory") {
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-            } else if entry.starts_with("💡") || entry.starts_with("⚔") {
-                Style::default().fg(Color::Cyan)
-            } else if entry.starts_with("🐀") {
-                Style::default().fg(Color::Yellow)
-            } else if entry.starts_with("═") || entry.starts_with("──") {
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(Color::White)
-            };
-            Line::styled(entry.as_str(), style)
-        }).collect::<Vec<Line>>()
+        state
+            .game_log
+            .iter()
+            .map(|entry| {
+                let style = if entry.starts_with("CRITICAL") || entry.contains("HIT!") {
+                    Style::default().fg(Color::Red)
+                } else if entry.contains("MISS") {
+                    Style::default().fg(Color::DarkGray)
+                } else if entry.contains("slain") || entry.contains("died") {
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+                } else if entry.contains("Victory") {
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD)
+                } else if entry.starts_with("💡") || entry.starts_with("⚔") {
+                    Style::default().fg(Color::Cyan)
+                } else if entry.starts_with("🐀") {
+                    Style::default().fg(Color::Yellow)
+                } else if entry.starts_with("═") || entry.starts_with("──") {
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+                Line::styled(entry.as_str(), style)
+            })
+            .collect::<Vec<Line>>(),
     )
     .wrap(Wrap { trim: false })
     .scroll((scroll, 0));
@@ -440,18 +495,32 @@ fn render_vitals(f: &mut Frame, state: &GameState, area: Rect) {
     };
 
     let title = if state.in_combat {
-        format!(" {} — Lv {} —{}", state.character_name, state.level, combat_label)
+        format!(
+            " {} — Lv {} —{}",
+            state.character_name, state.level, combat_label
+        )
     } else {
-        format!(" {} — Lv {} — XP: {} ", state.character_name, state.level, state.xp)
+        format!(
+            " {} — Lv {} — XP: {} ",
+            state.character_name, state.level, state.xp
+        )
     };
 
-    let title_color = if state.in_combat { Color::Red } else { Color::Cyan };
+    let title_color = if state.in_combat {
+        Color::Red
+    } else {
+        Color::Cyan
+    };
 
     let block = Block::new()
         .borders(Borders::TOP)
         .border_style(Style::default().fg(Color::DarkGray))
         .title(title)
-        .title_style(Style::default().fg(title_color).add_modifier(Modifier::BOLD));
+        .title_style(
+            Style::default()
+                .fg(title_color)
+                .add_modifier(Modifier::BOLD),
+        );
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -473,35 +542,63 @@ fn render_vitals(f: &mut Frame, state: &GameState, area: Rect) {
     };
 
     // HP bar
-    let hp_ratio = if state.max_hp > 0 { state.hp as f64 / state.max_hp as f64 } else { 0.0 };
-    let hp_color = if hp_ratio > 0.6 { Color::Green } else if hp_ratio > 0.3 { Color::Yellow } else { Color::Red };
+    let hp_ratio = if state.max_hp > 0 {
+        state.hp as f64 / state.max_hp as f64
+    } else {
+        0.0
+    };
+    let hp_color = if hp_ratio > 0.6 {
+        Color::Green
+    } else if hp_ratio > 0.3 {
+        Color::Yellow
+    } else {
+        Color::Red
+    };
     let hp_gauge = Gauge::default()
         .gauge_style(Style::default().fg(hp_color).bg(Color::Rgb(30, 30, 30)))
         .label(Span::styled(
             format!("HP {}/{}", state.hp, state.max_hp),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
         ))
         .ratio(hp_ratio.clamp(0.0, 1.0));
     f.render_widget(hp_gauge, bar_chunks[0]);
 
     // Mana bar
-    let mp_ratio = if state.max_mana > 0 { state.mana as f64 / state.max_mana as f64 } else { 0.0 };
+    let mp_ratio = if state.max_mana > 0 {
+        state.mana as f64 / state.max_mana as f64
+    } else {
+        0.0
+    };
     let mp_gauge = Gauge::default()
         .gauge_style(Style::default().fg(Color::Blue).bg(Color::Rgb(30, 30, 30)))
         .label(Span::styled(
             format!("MP {}/{}", state.mana, state.max_mana),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
         ))
         .ratio(mp_ratio.clamp(0.0, 1.0));
     f.render_widget(mp_gauge, bar_chunks[1]);
 
     // Stamina bar
-    let sp_ratio = if state.max_stamina > 0 { state.stamina as f64 / state.max_stamina as f64 } else { 0.0 };
+    let sp_ratio = if state.max_stamina > 0 {
+        state.stamina as f64 / state.max_stamina as f64
+    } else {
+        0.0
+    };
     let sp_gauge = Gauge::default()
-        .gauge_style(Style::default().fg(Color::Yellow).bg(Color::Rgb(30, 30, 30)))
+        .gauge_style(
+            Style::default()
+                .fg(Color::Yellow)
+                .bg(Color::Rgb(30, 30, 30)),
+        )
         .label(Span::styled(
             format!("SP {}/{}", state.stamina, state.max_stamina),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
         ))
         .ratio(sp_ratio.clamp(0.0, 1.0));
     f.render_widget(sp_gauge, bar_chunks[2]);
@@ -512,12 +609,20 @@ fn render_vitals(f: &mut Frame, state: &GameState, area: Rect) {
         let frames_since_round = state.frame.saturating_sub(state.last_round_frame);
         let gcd_ratio = (frames_since_round as f64 / frames_per_round as f64).clamp(0.0, 1.0);
 
-        let gcd_color = if gcd_ratio > 0.8 { Color::Green } else if gcd_ratio > 0.5 { Color::Yellow } else { Color::Red };
+        let gcd_color = if gcd_ratio > 0.8 {
+            Color::Green
+        } else if gcd_ratio > 0.5 {
+            Color::Yellow
+        } else {
+            Color::Red
+        };
         let gcd_gauge = Gauge::default()
             .gauge_style(Style::default().fg(gcd_color).bg(Color::Rgb(30, 30, 30)))
             .label(Span::styled(
                 "⏱ GCD",
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
             ))
             .ratio(gcd_ratio);
         f.render_widget(gcd_gauge, bar_chunks[3]);
